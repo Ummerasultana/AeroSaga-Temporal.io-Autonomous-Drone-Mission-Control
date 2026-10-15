@@ -19,6 +19,15 @@ public class DroneMissionActivitiesImpl
     @Override
     public void navigate(String droneId) {
         log(droneId, "Navigating to delivery location");
+
+        try {
+            Thread.sleep(30_000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Navigation activity interrupted", e);
+        }
+
+        log(droneId, "Navigation completed");
     }
 
     @Override

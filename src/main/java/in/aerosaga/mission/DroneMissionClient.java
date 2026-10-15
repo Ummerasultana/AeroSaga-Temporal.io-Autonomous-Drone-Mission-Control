@@ -1,33 +1,42 @@
-
 package in.aerosaga.mission;
 
+import in.aerosaga.mission.DroneMissionWorkflow;
+import in.aerosaga.mission.DroneWorker;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowOptions;
 import io.temporal.serviceclient.WorkflowServiceStubs;
+import io.temporal.serviceclient.WorkflowServiceStubsOptions;
 
 public class DroneMissionClient {
 
     public static void main(String[] args) {
 
         WorkflowServiceStubs service =
-                WorkflowServiceStubs.newLocalServiceStubs();
-
-        WorkflowClient client =
-                WorkflowClient.newInstance(service);
-
-        DroneMissionWorkflow workflow =
-                client.newWorkflowStub(
-                        DroneMissionWorkflow.class,
-                        WorkflowOptions.newBuilder()
-                                .setWorkflowId("drone-mission-001")
-                                .setTaskQueue(DroneWorker.TASK_QUEUE)
+                WorkflowServiceStubs.newServiceStubs(
+                        WorkflowServiceStubsOptions.newBuilder()
+                                .setTarget("127.0.0.1:7233")
                                 .build()
                 );
 
-        String result = workflow.executeMission("DRONE-001");
+        try {
+            WorkflowClient client =
+                    WorkflowClient.newInstance(service);
 
-        System.out.println(result);
+            DroneMissionWorkflow workflow =
+                    client.newWorkflowStub(
+                            DroneMissionWorkflow.class,
+                            WorkflowOptions.newBuilder()
+                                    .setWorkflowId("drone-mission-recovery-003")
+                                    .setTaskQueue(DroneWorker.TASK_QUEUE)
+                                    .build()
+                    );
 
-        service.shutdown();
+            String result = workflow.executeMission("DRONE-003");
+
+            System.out.println(result);
+
+        } finally {
+            service.shutdown();
+        }
     }
 }
