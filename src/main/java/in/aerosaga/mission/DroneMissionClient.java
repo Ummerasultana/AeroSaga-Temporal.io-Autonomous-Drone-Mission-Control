@@ -26,12 +26,12 @@ public class DroneMissionClient {
                     client.newWorkflowStub(
                             DroneMissionWorkflow.class,
                             WorkflowOptions.newBuilder()
-                                    .setWorkflowId("drone-mission-recovery-003")
+                                    .setWorkflowId("drone-mission-recovery-2")
                                     .setTaskQueue(DroneWorker.TASK_QUEUE)
                                     .build()
                     );
 
-            String result = workflow.executeMission("DRONE-003");
+            String result = workflow.executeMission("DRONE-002");
 
             System.out.println(result);
 

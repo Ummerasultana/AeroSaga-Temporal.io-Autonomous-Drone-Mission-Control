@@ -30,10 +30,17 @@ public class DroneMissionActivitiesImpl
         log(droneId, "Navigation completed");
     }
 
+
     @Override
     public void dropPackage(String droneId) {
+        if (Boolean.getBoolean("aerosaga.test.drop-failure")) {
+            log(droneId, "Package delivery failed (test mode)");
+            throw new RuntimeException("Simulated package delivery failure");
+        }
+
         log(droneId, "Package delivered");
     }
+
 
     @Override
     public void returnToBase(String droneId) {
