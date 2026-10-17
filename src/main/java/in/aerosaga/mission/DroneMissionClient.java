@@ -1,13 +1,16 @@
+
 package in.aerosaga.mission;
 
-import in.aerosaga.mission.DroneMissionWorkflow;
-import in.aerosaga.mission.DroneWorker;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowOptions;
+import io.temporal.client.WorkflowStub;
 import io.temporal.serviceclient.WorkflowServiceStubs;
 import io.temporal.serviceclient.WorkflowServiceStubsOptions;
 
 public class DroneMissionClient {
+
+    private static final String WORKFLOW_ID =
+            "drone-mission-emergency-002";
 
     public static void main(String[] args) {
 
@@ -19,21 +22,46 @@ public class DroneMissionClient {
                 );
 
         try {
-            WorkflowClient client =
-                    WorkflowClient.newInstance(service);
+            WorkflowClient client = WorkflowClient.newInstance(service);
 
-            DroneMissionWorkflow workflow =
-                    client.newWorkflowStub(
-                            DroneMissionWorkflow.class,
-                            WorkflowOptions.newBuilder()
-                                    .setWorkflowId("drone-mission-recovery-2")
-                                    .setTaskQueue(DroneWorker.TASK_QUEUE)
-                                    .build()
-                    );
+            if (args.length > 0
+                    && args[0].equalsIgnoreCase("abort")) {
 
-            String result = workflow.executeMission("DRONE-002");
+                // Connect to the existing workflow execution.
+                WorkflowStub existingWorkflow =
+                        client.newUntypedWorkflowStub(WORKFLOW_ID);
 
-            System.out.println(result);
+                existingWorkflow.signal("requestAbort");
+
+                System.out.println(
+                        "Emergency abort signal sent to workflow: "
+                                + WORKFLOW_ID
+                );
+
+            } else {
+
+                DroneMissionWorkflow workflow =
+                        client.newWorkflowStub(
+                                DroneMissionWorkflow.class,
+                                WorkflowOptions.newBuilder()
+                                        .setWorkflowId(WORKFLOW_ID)
+                                        .setTaskQueue(DroneWorker.TASK_QUEUE)
+                                        .build()
+                        );
+
+                String result = WorkflowClient.execute(
+                        workflow::executeMission,
+                        "DRONE-001"
+                ).get();
+
+                System.out.println(result);
+            }
+
+        } catch (Exception e) {
+            System.err.println(
+                    "Workflow operation failed: " + e.getMessage()
+            );
+            e.printStackTrace();
 
         } finally {
             service.shutdown();
