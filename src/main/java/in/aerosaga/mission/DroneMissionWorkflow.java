@@ -1,6 +1,7 @@
 
 package in.aerosaga.mission;
 
+import io.temporal.workflow.QueryMethod;
 import io.temporal.workflow.WorkflowInterface;
 import io.temporal.workflow.WorkflowMethod;
 import io.temporal.workflow.SignalMethod;
@@ -13,4 +14,7 @@ public interface DroneMissionWorkflow {
 
     @SignalMethod
     void requestAbort();
+
+    @QueryMethod
+    String getMissionStatus();
 }
