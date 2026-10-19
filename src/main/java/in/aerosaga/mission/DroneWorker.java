@@ -3,9 +3,9 @@ package in.aerosaga.mission;
 
 import io.temporal.client.WorkflowClient;
 import io.temporal.serviceclient.WorkflowServiceStubs;
+import io.temporal.serviceclient.WorkflowServiceStubsOptions;
 import io.temporal.worker.Worker;
 import io.temporal.worker.WorkerFactory;
-import io.temporal.serviceclient.WorkflowServiceStubsOptions;
 
 public class DroneWorker {
 
@@ -23,19 +23,26 @@ public class DroneWorker {
         WorkflowClient client =
                 WorkflowClient.newInstance(service);
 
-        WorkerFactory factory = WorkerFactory.newInstance(client);
+        WorkerFactory factory =
+                WorkerFactory.newInstance(client);
 
         Worker worker = factory.newWorker(TASK_QUEUE);
 
+        // Register both workflow implementations
         worker.registerWorkflowImplementationTypes(
-                DroneMissionWorkflowImpl.class);
+                DroneMissionWorkflowImpl.class,
+                MultiDroneMissionWorkflowImpl.class
+        );
 
+        // Register activities
         worker.registerActivitiesImplementations(
-                new DroneMissionActivitiesImpl());
+                new DroneMissionActivitiesImpl()
+        );
 
         factory.start();
 
         System.out.println(
-                "Drone worker started. Waiting for missions...");
+                "Drone worker started. Waiting for missions..."
+        );
     }
 }
