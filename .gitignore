@@ -38,3 +38,4 @@ build/
 ### Mac OS ###
 .DS_Store
 .idea/
+apache-maven-3.9.11/
