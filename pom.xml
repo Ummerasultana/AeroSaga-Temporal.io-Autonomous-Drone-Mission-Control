@@ -5,23 +5,45 @@
 
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.2</version>
+        <relativePath/>
+    </parent>
+
     <groupId>in.aerosaga</groupId>
     <artifactId>aerosaga</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
+        <java.version>25</java.version>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <temporal.version>1.40.0</temporal.version>
     </properties>
 
     <dependencies>
+        <!-- Existing Temporal SDK -->
         <dependency>
             <groupId>io.temporal</groupId>
             <artifactId>temporal-sdk</artifactId>
             <version>${temporal.version}</version>
         </dependency>
 
+        <!-- Telemetry Gateway: REST APIs -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Telemetry Gateway: WebSockets -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- Existing logging dependency -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
