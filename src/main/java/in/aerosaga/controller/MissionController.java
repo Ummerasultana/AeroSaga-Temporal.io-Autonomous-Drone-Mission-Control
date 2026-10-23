@@ -1,15 +1,21 @@
 package in.aerosaga.controller;
 
 import in.aerosaga.dto.MissionRequest;
+import in.aerosaga.dto.MissionResponse;
+import in.aerosaga.service.MissionService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/missions")
 public class MissionController {
+
+    private final MissionService missionService;
+
+    public MissionController(MissionService missionService) {
+        this.missionService = missionService;
+    }
 
     @GetMapping("/test")
     public String test() {
@@ -17,13 +23,26 @@ public class MissionController {
     }
 
     @PostMapping
-    public ResponseEntity<String> startMission(
+    public ResponseEntity<MissionResponse> startMission(
             @Valid @RequestBody MissionRequest request) {
 
-        String missionId = UUID.randomUUID().toString();
+        MissionResponse response =
+                missionService.createMission(request.getDroneId());
 
-        return ResponseEntity.ok(
-                "Mission started successfully. Mission ID: " + missionId
-        );
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{missionId}")
+    public ResponseEntity<MissionResponse> getMission(
+            @PathVariable String missionId) {
+
+        MissionResponse response =
+                missionService.getMission(missionId);
+
+        if (response == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(response);
     }
 }
