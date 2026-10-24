@@ -30,4 +30,18 @@ public class MissionService {
     public MissionResponse getMission(String missionId) {
         return missions.get(missionId);
     }
+
+    public MissionResponse updateMissionStatus(
+            String missionId, String status) {
+
+        MissionResponse mission = missions.get(missionId);
+
+        if (mission == null) {
+            return null;
+        }
+
+        mission.setStatus(status);
+
+        return mission;
+    }
 }
