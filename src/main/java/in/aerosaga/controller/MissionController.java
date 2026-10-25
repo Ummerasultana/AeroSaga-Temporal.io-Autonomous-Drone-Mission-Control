@@ -8,6 +8,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/missions")
 public class MissionController {
@@ -28,9 +30,16 @@ public class MissionController {
             @Valid @RequestBody MissionRequest request) {
 
         MissionResponse response =
-                missionService.createMission(request.getDroneId());
+                missionService.createMission(request);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<MissionResponse>> getAllMissions() {
+        return ResponseEntity.ok(
+                missionService.getAllMissions()
+        );
     }
 
     @GetMapping("/{missionId}")
@@ -52,14 +61,19 @@ public class MissionController {
             @PathVariable String missionId,
             @Valid @RequestBody MissionStatusRequest request) {
 
-        MissionResponse response =
-                missionService.updateMissionStatus(
-                        missionId, request.getStatus());
+        try {
+            MissionResponse response =
+                    missionService.updateMissionStatus(
+                            missionId, request.getStatus());
 
-        if (response == null) {
-            return ResponseEntity.notFound().build();
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
         }
-
-        return ResponseEntity.ok(response);
     }
 }
