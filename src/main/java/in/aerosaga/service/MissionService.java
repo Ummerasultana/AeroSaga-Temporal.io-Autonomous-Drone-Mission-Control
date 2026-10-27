@@ -17,6 +17,13 @@ public class MissionService {
     private final Map<String, MissionResponse> missions =
             new ConcurrentHashMap<>();
 
+    private final TemporalMissionService temporalMissionService;
+
+    public MissionService(
+            TemporalMissionService temporalMissionService) {
+        this.temporalMissionService = temporalMissionService;
+    }
+
     public MissionResponse createMission(MissionRequest request) {
 
         String missionId = UUID.randomUUID().toString();
@@ -32,6 +39,15 @@ public class MissionService {
         );
 
         missions.put(missionId, response);
+
+        temporalMissionService.startMissionWorkflow(
+                missionId,
+                request.getDroneId(),
+                request.getStartLatitude(),
+                request.getStartLongitude(),
+                request.getTargetLatitude(),
+                request.getTargetLongitude()
+        );
 
         return response;
     }
@@ -56,9 +72,13 @@ public class MissionService {
         MissionStatus validStatus;
 
         try {
-            validStatus = MissionStatus.valueOf(status.toUpperCase());
+            validStatus = MissionStatus.valueOf(
+                    status.toUpperCase()
+            );
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid mission status");
+            throw new IllegalArgumentException(
+                    "Invalid mission status"
+            );
         }
 
         mission.setStatus(validStatus.name());
