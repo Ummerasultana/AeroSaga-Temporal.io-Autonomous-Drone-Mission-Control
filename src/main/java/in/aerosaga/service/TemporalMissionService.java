@@ -1,5 +1,6 @@
 package in.aerosaga.service;
 
+import in.aerosaga.workflow.MissionWorkflow;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowOptions;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,9 +13,6 @@ public class TemporalMissionService {
 
     @Value("${aerosaga.temporal.task-queue}")
     private String taskQueue;
-
-    @Value("${aerosaga.temporal.workflow-type}")
-    private String workflowType;
 
     public TemporalMissionService(WorkflowClient workflowClient) {
         this.workflowClient = workflowClient;
@@ -33,12 +31,17 @@ public class TemporalMissionService {
                 .setWorkflowId("mission-" + missionId)
                 .build();
 
-        System.out.println(
-                "Temporal workflow prepared: " + workflowType
-                        + " for mission: " + missionId
-        );
+        MissionWorkflow workflow = workflowClient.newWorkflowStub(
+                MissionWorkflow.class, options);
 
-        // The actual workflow start call will be added
-        // after defining our own workflow contract.
+        WorkflowClient.start(
+                workflow::executeMission,
+                missionId,
+                droneId,
+                startLatitude,
+                startLongitude,
+                targetLatitude,
+                targetLongitude
+        );
     }
 }

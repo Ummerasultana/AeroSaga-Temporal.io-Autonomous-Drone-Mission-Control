@@ -10,13 +10,12 @@ public class TemporalConfig {
 
     @Bean
     public WorkflowServiceStubs workflowServiceStubs() {
-        return WorkflowServiceStubs.newLocalServiceStubs();
+        return WorkflowServiceStubs.newInstance();
     }
 
     @Bean
     public WorkflowClient workflowClient(
             WorkflowServiceStubs workflowServiceStubs) {
-
         return WorkflowClient.newInstance(workflowServiceStubs);
     }
 }
