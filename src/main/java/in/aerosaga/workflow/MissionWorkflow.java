@@ -1,5 +1,6 @@
 package in.aerosaga.workflow;
 
+import io.temporal.workflow.QueryMethod;
 import io.temporal.workflow.WorkflowInterface;
 import io.temporal.workflow.WorkflowMethod;
 
@@ -15,4 +16,7 @@ public interface MissionWorkflow {
             Double targetLatitude,
             Double targetLongitude
     );
+
+    @QueryMethod
+    String getProgress();
 }
