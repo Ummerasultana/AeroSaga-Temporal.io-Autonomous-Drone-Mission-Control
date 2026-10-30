@@ -25,7 +25,6 @@ public class MissionService {
     }
 
     public MissionResponse createMission(MissionRequest request) {
-
         String missionId = UUID.randomUUID().toString();
 
         MissionResponse response = new MissionResponse(
@@ -40,14 +39,21 @@ public class MissionService {
 
         missions.put(missionId, response);
 
-        temporalMissionService.startMissionWorkflow(
-                missionId,
-                request.getDroneId(),
-                request.getStartLatitude(),
-                request.getStartLongitude(),
-                request.getTargetLatitude(),
-                request.getTargetLongitude()
-        );
+        try {
+            temporalMissionService.startMissionWorkflow(
+                    missionId,
+                    request.getDroneId(),
+                    request.getStartLatitude(),
+                    request.getStartLongitude(),
+                    request.getTargetLatitude(),
+                    request.getTargetLongitude()
+            );
+        } catch (RuntimeException e) {
+            missions.remove(missionId);
+            throw new IllegalStateException(
+                    "Unable to start mission workflow", e
+            );
+        }
 
         return response;
     }
@@ -60,7 +66,7 @@ public class MissionService {
         return new ArrayList<>(missions.values());
     }
 
-    public MissionResponse updateMissionStatus(
+    public synchronized MissionResponse updateMissionStatus(
             String missionId, String status) {
 
         MissionResponse mission = missions.get(missionId);
@@ -69,19 +75,45 @@ public class MissionService {
             return null;
         }
 
-        MissionStatus validStatus;
-
-        try {
-            validStatus = MissionStatus.valueOf(
-                    status.toUpperCase()
-            );
-        } catch (IllegalArgumentException e) {
+        if (status == null || status.isBlank()) {
             throw new IllegalArgumentException(
-                    "Invalid mission status"
+                    "Mission status is required"
             );
         }
 
-        mission.setStatus(validStatus.name());
+        MissionStatus newStatus;
+
+        try {
+            newStatus = MissionStatus.valueOf(
+                    status.trim().toUpperCase()
+            );
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid mission status: " + status
+            );
+        }
+
+        MissionStatus currentStatus =
+                MissionStatus.valueOf(mission.getStatus());
+
+        if (currentStatus == newStatus) {
+            return mission;
+        }
+
+        if (currentStatus == MissionStatus.COMPLETED
+                || currentStatus == MissionStatus.ABORTED) {
+            throw new IllegalStateException(
+                    "A completed or aborted mission cannot be changed"
+            );
+        }
+
+        if (newStatus == MissionStatus.STARTED) {
+            throw new IllegalArgumentException(
+                    "A mission cannot be reset to STARTED"
+            );
+        }
+
+        mission.setStatus(newStatus.name());
 
         return mission;
     }
