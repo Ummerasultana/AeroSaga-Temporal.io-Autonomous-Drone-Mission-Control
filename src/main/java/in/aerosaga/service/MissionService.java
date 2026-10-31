@@ -117,4 +117,30 @@ public class MissionService {
 
         return mission;
     }
+
+    public synchronized MissionResponse cancelMission(
+            String missionId) {
+
+        MissionResponse mission = missions.get(missionId);
+
+        if (mission == null) {
+            return null;
+        }
+
+        MissionStatus currentStatus =
+                MissionStatus.valueOf(mission.getStatus());
+
+        if (currentStatus == MissionStatus.COMPLETED
+                || currentStatus == MissionStatus.ABORTED) {
+            throw new IllegalStateException(
+                    "Completed or aborted missions cannot be cancelled"
+            );
+        }
+
+        temporalMissionService.cancelMissionWorkflow(missionId);
+
+        mission.setStatus(MissionStatus.ABORTED.name());
+
+        return mission;
+    }
 }

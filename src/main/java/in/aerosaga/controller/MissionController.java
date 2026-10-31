@@ -121,4 +121,23 @@ public class MissionController {
                 )
         );
     }
+
+    @PutMapping("/{missionId}/cancel")
+    public ResponseEntity<?> cancelMission(
+            @PathVariable String missionId) {
+
+        MissionResponse cancelled =
+                missionService.cancelMission(missionId);
+
+        if (cancelled == null) {
+            return ResponseEntity.status(404).body(
+                    Map.of(
+                            "error", "Mission not found",
+                            "missionId", missionId
+                    )
+            );
+        }
+
+        return ResponseEntity.ok(cancelled);
+    }
 }

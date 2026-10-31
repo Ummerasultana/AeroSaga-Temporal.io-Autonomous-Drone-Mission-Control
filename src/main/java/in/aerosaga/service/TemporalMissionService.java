@@ -31,10 +31,11 @@ public class TemporalMissionService {
                 .setWorkflowId("mission-" + missionId)
                 .build();
 
-        MissionWorkflow workflow = workflowClient.newWorkflowStub(
-                MissionWorkflow.class,
-                options
-        );
+        MissionWorkflow workflow =
+                workflowClient.newWorkflowStub(
+                        MissionWorkflow.class,
+                        options
+                );
 
         WorkflowClient.start(
                 workflow::executeMission,
@@ -50,11 +51,21 @@ public class TemporalMissionService {
     public String getMissionProgress(String missionId) {
         String workflowId = "mission-" + missionId;
 
-        MissionWorkflow workflow = workflowClient.newWorkflowStub(
-                MissionWorkflow.class,
-                workflowId
-        );
+        MissionWorkflow workflow =
+                workflowClient.newWorkflowStub(
+                        MissionWorkflow.class,
+                        workflowId
+                );
 
         return workflow.getProgress();
+    }
+
+    public void cancelMissionWorkflow(String missionId) {
+        String workflowId = "mission-" + missionId;
+
+        io.temporal.client.WorkflowStub workflowStub =
+                workflowClient.newUntypedWorkflowStub(workflowId);
+
+        workflowStub.cancel();
     }
 }
