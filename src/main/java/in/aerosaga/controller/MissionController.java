@@ -50,6 +50,16 @@ public class MissionController {
         );
     }
 
+    @GetMapping("/filter")
+    public ResponseEntity<List<MissionResponse>> filterMissions(
+            @RequestParam(required = false) String droneId,
+            @RequestParam(required = false) String status) {
+
+        return ResponseEntity.ok(
+                missionService.filterMissions(droneId, status)
+        );
+    }
+
     @GetMapping("/{missionId}")
     public ResponseEntity<?> getMission(
             @PathVariable String missionId) {

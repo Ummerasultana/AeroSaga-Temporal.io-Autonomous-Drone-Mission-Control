@@ -1,5 +1,7 @@
 package in.aerosaga.dto;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -9,16 +11,27 @@ public class MissionRequest {
     private String droneId;
 
     @NotNull(message = "Start latitude is required")
+    @DecimalMin(value = "-90.0", message = "Start latitude must be at least -90")
+    @DecimalMax(value = "90.0", message = "Start latitude must not exceed 90")
     private Double startLatitude;
 
     @NotNull(message = "Start longitude is required")
+    @DecimalMin(value = "-180.0", message = "Start longitude must be at least -180")
+    @DecimalMax(value = "180.0", message = "Start longitude must not exceed 180")
     private Double startLongitude;
 
     @NotNull(message = "Target latitude is required")
+    @DecimalMin(value = "-90.0", message = "Target latitude must be at least -90")
+    @DecimalMax(value = "90.0", message = "Target latitude must not exceed 90")
     private Double targetLatitude;
 
     @NotNull(message = "Target longitude is required")
+    @DecimalMin(value = "-180.0", message = "Target longitude must be at least -180")
+    @DecimalMax(value = "180.0", message = "Target longitude must not exceed 180")
     private Double targetLongitude;
+
+    public MissionRequest() {
+    }
 
     public String getDroneId() {
         return droneId;

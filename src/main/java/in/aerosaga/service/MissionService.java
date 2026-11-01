@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 public class MissionService {
@@ -25,6 +26,18 @@ public class MissionService {
     }
 
     public MissionResponse createMission(MissionRequest request) {
+
+        // Validate that the start and target locations differ.
+        if (request.getStartLatitude()
+                    .equals(request.getTargetLatitude())
+                && request.getStartLongitude()
+                    .equals(request.getTargetLongitude())) {
+
+            throw new IllegalArgumentException(
+                    "Start location and target location cannot be the same"
+            );
+        }
+
         String missionId = UUID.randomUUID().toString();
 
         MissionResponse response = new MissionResponse(
@@ -50,6 +63,7 @@ public class MissionService {
             );
         } catch (RuntimeException e) {
             missions.remove(missionId);
+
             throw new IllegalStateException(
                     "Unable to start mission workflow", e
             );
@@ -142,5 +156,23 @@ public class MissionService {
         mission.setStatus(MissionStatus.ABORTED.name());
 
         return mission;
+    }
+
+    public List<MissionResponse> filterMissions(
+            String droneId, String status) {
+
+        return missions.values()
+                .stream()
+                .filter(mission ->
+                        droneId == null
+                                || droneId.isBlank()
+                                || mission.getDroneId()
+                                        .equalsIgnoreCase(droneId.trim()))
+                .filter(mission ->
+                        status == null
+                                || status.isBlank()
+                                || mission.getStatus()
+                                        .equalsIgnoreCase(status.trim()))
+                .collect(Collectors.toList());
     }
 }

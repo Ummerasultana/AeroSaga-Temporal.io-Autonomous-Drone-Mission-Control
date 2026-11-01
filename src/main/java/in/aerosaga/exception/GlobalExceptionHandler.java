@@ -32,12 +32,42 @@ public class GlobalExceptionHandler {
 
         e.getBindingResult()
                 .getFieldErrors()
-                .forEach(error ->
-                        errors.put(error.getField(), error.getDefaultMessage())
+                .forEach(fieldError ->
+                        errors.put(
+                                fieldError.getField(),
+                                fieldError.getDefaultMessage()
+                        )
                 );
 
         return ResponseEntity
-                .badRequest()
+                .status(HttpStatus.BAD_REQUEST)
                 .body(errors);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(
+            IllegalStateException e) {
+
+        Map<String, String> error = new HashMap<>();
+        error.put("error", e.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleGeneralException(
+            Exception e) {
+
+        Map<String, String> error = new HashMap<>();
+        error.put(
+                "error",
+                "An unexpected error occurred. Please try again later."
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(error);
     }
 }
