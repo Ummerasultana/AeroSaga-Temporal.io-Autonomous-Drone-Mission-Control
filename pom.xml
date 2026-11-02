@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
@@ -25,10 +24,9 @@
         <java.version>21</java.version>
     </properties>
 
-    <!-- Dependencies -->
     <dependencies>
 
-        <!-- Spring Boot REST API -->
+        <!-- REST APIs -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -39,11 +37,26 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+
+        <!-- Database Access -->
         <dependency>
-    <groupId>io.temporal</groupId>
-    <artifactId>temporal-sdk</artifactId>
-    <version>1.29.0</version>
-</dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- PostgreSQL Driver -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Temporal Workflow SDK -->
+        <dependency>
+            <groupId>io.temporal</groupId>
+            <artifactId>temporal-sdk</artifactId>
+            <version>1.29.0</version>
+        </dependency>
 
         <!-- Testing -->
         <dependency>
@@ -54,7 +67,6 @@
 
     </dependencies>
 
-    <!-- Build Plugins -->
     <build>
         <plugins>
 
@@ -64,7 +76,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
 
-            <!-- Run Java Main Class -->
+            <!-- Existing Maven Exec Plugin -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
