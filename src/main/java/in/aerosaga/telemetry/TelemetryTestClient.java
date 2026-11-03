@@ -9,8 +9,9 @@ public class TelemetryTestClient {
 
     public static void main(String[] args) throws Exception {
 
-        WebSocket webSocket = HttpClient.newHttpClient()
-                .newWebSocketBuilder()
+        HttpClient client = HttpClient.newHttpClient();
+
+        client.newWebSocketBuilder()
                 .buildAsync(
                         URI.create("ws://localhost:8081/telemetry"),
                         new WebSocket.Listener() {
@@ -20,6 +21,7 @@ public class TelemetryTestClient {
                                 System.out.println(
                                         "Connected to AeroSaga Telemetry Gateway!"
                                 );
+
                                 webSocket.request(1);
                             }
 
@@ -49,6 +51,9 @@ public class TelemetryTestClient {
                         })
                 .join();
 
-        System.out.println("WebSocket test client is running.");
+        System.out.println("Dashboard listener is running.");
+
+        // Keep the dashboard connection alive.
+        Thread.currentThread().join();
     }
 }
