@@ -14,20 +14,32 @@ public class Mission {
     private String droneId;
     private String status;
 
+    // Current Temporal workflow stage
+    private String currentStage = "NOT_STARTED";
+
     private double startLatitude;
     private double startLongitude;
     private double targetLatitude;
     private double targetLongitude;
 
+    // Default constructor
     public Mission() {
     }
 
-    public Mission(String missionId, String droneId, String status,
-                   double startLatitude, double startLongitude,
-                   double targetLatitude, double targetLongitude) {
+    // Parameterized constructor
+    public Mission(
+            String missionId,
+            String droneId,
+            String status,
+            double startLatitude,
+            double startLongitude,
+            double targetLatitude,
+            double targetLongitude) {
+
         this.missionId = missionId;
         this.droneId = droneId;
         this.status = status;
+        this.currentStage = "NOT_STARTED";
         this.startLatitude = startLatitude;
         this.startLongitude = startLongitude;
         this.targetLatitude = targetLatitude;
@@ -60,6 +72,14 @@ public class Mission {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getCurrentStage() {
+        return currentStage;
+    }
+
+    public void setCurrentStage(String currentStage) {
+        this.currentStage = currentStage;
     }
 
     public double getStartLatitude() {
