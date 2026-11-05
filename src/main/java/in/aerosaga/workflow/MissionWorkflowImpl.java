@@ -88,7 +88,7 @@ public class MissionWorkflowImpl implements MissionWorkflow {
                 targetLongitude
         );
 
-        Workflow.sleep(Duration.ofSeconds(2));
+        Workflow.sleep(Duration.ofSeconds(15));
 
         // Stage 4: Complete mission
         currentStage = "COMPLETED";

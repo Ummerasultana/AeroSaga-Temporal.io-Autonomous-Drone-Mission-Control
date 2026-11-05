@@ -2,10 +2,12 @@ package in.aerosaga.controller;
 
 import in.aerosaga.dto.MissionRequest;
 import in.aerosaga.dto.MissionResponse;
+import in.aerosaga.dto.MissionProgressResponse;
 import in.aerosaga.dto.MissionStatusRequest;
 import in.aerosaga.service.MissionService;
-import in.aerosaga.service.TemporalMissionService;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,13 +19,9 @@ import java.util.Map;
 public class MissionController {
 
     private final MissionService missionService;
-    private final TemporalMissionService temporalMissionService;
 
-    public MissionController(
-            MissionService missionService,
-            TemporalMissionService temporalMissionService) {
+    public MissionController(MissionService missionService) {
         this.missionService = missionService;
-        this.temporalMissionService = temporalMissionService;
     }
 
     @GetMapping("/test")
@@ -37,10 +35,9 @@ public class MissionController {
     public ResponseEntity<MissionResponse> createMission(
             @Valid @RequestBody MissionRequest request) {
 
-        MissionResponse response =
-                missionService.createMission(request);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                missionService.createMission(request)
+        );
     }
 
     @GetMapping
@@ -105,14 +102,15 @@ public class MissionController {
         return ResponseEntity.ok(updated);
     }
 
+    // Get structured mission progress
     @GetMapping("/{missionId}/progress")
-    public ResponseEntity<Map<String, String>> getMissionProgress(
+    public ResponseEntity<?> getMissionProgress(
             @PathVariable String missionId) {
 
-        MissionResponse mission =
-                missionService.getMission(missionId);
+        MissionProgressResponse progress =
+                missionService.getMissionProgress(missionId);
 
-        if (mission == null) {
+        if (progress == null) {
             return ResponseEntity.status(404).body(
                     Map.of(
                             "error", "Mission not found",
@@ -121,15 +119,7 @@ public class MissionController {
             );
         }
 
-        String progress =
-                temporalMissionService.getMissionProgress(missionId);
-
-        return ResponseEntity.ok(
-                Map.of(
-                        "missionId", missionId,
-                        "progress", progress
-                )
-        );
+        return ResponseEntity.ok(progress);
     }
 
     @PutMapping("/{missionId}/cancel")

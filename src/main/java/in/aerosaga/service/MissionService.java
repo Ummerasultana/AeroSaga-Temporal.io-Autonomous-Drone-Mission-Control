@@ -2,6 +2,7 @@ package in.aerosaga.service;
 
 import in.aerosaga.dto.MissionRequest;
 import in.aerosaga.dto.MissionResponse;
+import in.aerosaga.dto.MissionProgressResponse;
 import in.aerosaga.entity.Mission;
 import in.aerosaga.enums.MissionStatus;
 import in.aerosaga.repository.MissionRepository;
@@ -87,6 +88,26 @@ public class MissionService {
         return missionRepository.findByMissionId(missionId)
                 .map(this::convertToResponse)
                 .orElse(null);
+    }
+
+    // Get structured mission progress
+    public MissionProgressResponse getMissionProgress(String missionId) {
+
+        Mission mission = missionRepository
+                .findByMissionId(missionId)
+                .orElse(null);
+
+        if (mission == null) {
+            return null;
+        }
+
+        return new MissionProgressResponse(
+                mission.getMissionId(),
+                mission.getDroneId(),
+                mission.getCurrentStage(),
+                mission.getStatus(),
+                "COMPLETED".equals(mission.getCurrentStage())
+        );
     }
 
     // Get all missions

@@ -1,8 +1,12 @@
 package in.aerosaga.service;
 
 import in.aerosaga.workflow.MissionWorkflow;
+
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowOptions;
+import io.temporal.client.WorkflowStub;
+import io.temporal.client.WorkflowNotFoundException;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +22,7 @@ public class TemporalMissionService {
         this.workflowClient = workflowClient;
     }
 
+    // Start a new mission workflow
     public void startMissionWorkflow(
             String missionId,
             String droneId,
@@ -48,7 +53,9 @@ public class TemporalMissionService {
         );
     }
 
+    // Get mission progress from Temporal
     public String getMissionProgress(String missionId) {
+
         String workflowId = "mission-" + missionId;
 
         MissionWorkflow workflow =
@@ -60,12 +67,23 @@ public class TemporalMissionService {
         return workflow.getProgress();
     }
 
+    // Cancel a running mission workflow
     public void cancelMissionWorkflow(String missionId) {
+
         String workflowId = "mission-" + missionId;
 
-        io.temporal.client.WorkflowStub workflowStub =
+        WorkflowStub workflowStub =
                 workflowClient.newUntypedWorkflowStub(workflowId);
 
-        workflowStub.cancel();
+        try {
+            workflowStub.cancel();
+
+        } catch (WorkflowNotFoundException e) {
+
+            throw new IllegalStateException(
+                    "Mission workflow not found: " + workflowId,
+                    e
+            );
+        }
     }
 }
