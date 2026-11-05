@@ -1,4 +1,3 @@
-
 package in.aerosaga.telemetry;
 
 import java.net.URI;
@@ -9,116 +8,182 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class TelemetrySimulator {
 
-    private static volatile boolean running = true;
-
     public static void main(String[] args) {
 
-        HttpClient client = HttpClient.newHttpClient();
+        simulateDrone(
+                "DRONE-101",
+                15.1394,
+                76.9214,
+                120.0,
+                100.0
+        );
 
-        WebSocket webSocket = client.newWebSocketBuilder()
-                .buildAsync(
-                        URI.create("ws://localhost:8081/telemetry"),
-                        new WebSocket.Listener() {
+        simulateDrone(
+                "DRONE-102",
+                15.1400,
+                76.9220,
+                110.0,
+                100.0
+        );
 
-                            @Override
-                            public void onOpen(WebSocket webSocket) {
-                                System.out.println(
-                                        "Drone connected to Telemetry Gateway!"
-                                );
+        simulateDrone(
+                "DRONE-103",
+                15.1385,
+                76.9205,
+                130.0,
+                100.0
+        );
 
-                                webSocket.request(1);
+        System.out.println("All drone simulations started.");
+    }
+
+    private static void simulateDrone(
+            String droneId,
+            double initialLatitude,
+            double initialLongitude,
+            double initialAltitude,
+            double initialBattery) {
+
+        Thread droneThread = new Thread(() -> {
+
+            HttpClient client = HttpClient.newHttpClient();
+
+            WebSocket webSocket = client.newWebSocketBuilder()
+                    .buildAsync(
+                            URI.create("ws://localhost:8081/telemetry"),
+                            new WebSocket.Listener() {
+
+                                @Override
+                                public void onOpen(WebSocket webSocket) {
+
+                                    System.out.println(
+                                            droneId +
+                                                    " connected to Telemetry Gateway!"
+                                    );
+
+                                    webSocket.request(1);
+                                }
+
+                                @Override
+                                public CompletionStage<?> onText(
+                                        WebSocket webSocket,
+                                        CharSequence data,
+                                        boolean last) {
+
+                                    System.out.println(
+                                            droneId +
+                                                    " received: " +
+                                                    data
+                                    );
+
+                                    webSocket.request(1);
+
+                                    return null;
+                                }
+
+                                @Override
+                                public void onError(
+                                        WebSocket webSocket,
+                                        Throwable error) {
+
+                                    System.err.println(
+                                            droneId +
+                                                    " WebSocket error: " +
+                                                    error.getMessage()
+                                    );
+                                }
                             }
+                    )
+                    .join();
 
-                            @Override
-                            public CompletionStage<?> onText(
-                                    WebSocket webSocket,
-                                    CharSequence data,
-                                    boolean last) {
+            double latitude = initialLatitude;
+            double longitude = initialLongitude;
+            double altitude = initialAltitude;
+            double battery = initialBattery;
 
-                                System.out.println("Received: " + data);
-                                webSocket.request(1);
-                                return null;
+            System.out.println(
+                    "Starting simulation for " + droneId
+            );
+
+            try {
+
+                while (battery > 0) {
+
+                    latitude += ThreadLocalRandom.current()
+                            .nextDouble(-0.0001, 0.0001);
+
+                    longitude += ThreadLocalRandom.current()
+                            .nextDouble(-0.0001, 0.0001);
+
+                    altitude += ThreadLocalRandom.current()
+                            .nextDouble(-2.0, 2.0);
+
+                    altitude = Math.max(0, altitude);
+
+                    battery = Math.max(
+                            0,
+                            battery - 0.5
+                    );
+
+                    String telemetryJson = String.format(
+                            java.util.Locale.US,
+                            """
+                            {
+                                "droneId": "%s",
+                                "latitude": %.6f,
+                                "longitude": %.6f,
+                                "altitude": %.2f,
+                                "batteryLevel": %.2f,
+                                "timestamp": %d
                             }
+                            """,
+                            droneId,
+                            latitude,
+                            longitude,
+                            altitude,
+                            battery,
+                            System.currentTimeMillis()
+                    );
 
-                            @Override
-                            public void onError(
-                                    WebSocket webSocket,
-                                    Throwable error) {
+                    webSocket
+                            .sendText(telemetryJson, true)
+                            .join();
 
-                                System.err.println(
-                                        "WebSocket error: " + error.getMessage()
-                                );
+                    System.out.println(
+                            droneId +
+                                    " telemetry sent: " +
+                                    telemetryJson
+                    );
 
-                                running = false;
-                            }
-                        })
-                .join();
-
-        double latitude = 15.1394;
-        double longitude = 76.9214;
-        double altitude = 120.5;
-        double battery = 100.0;
-
-        System.out.println("Starting continuous drone simulation...");
-
-        try {
-            while (running && battery > 0) {
-
-                // Simulate small GPS movements
-                latitude += ThreadLocalRandom.current()
-                        .nextDouble(-0.0001, 0.0001);
-
-                longitude += ThreadLocalRandom.current()
-                        .nextDouble(-0.0001, 0.0001);
-
-                // Simulate altitude changes
-                altitude += ThreadLocalRandom.current()
-                        .nextDouble(-2.0, 2.0);
-
-                altitude = Math.max(0, altitude);
-
-                // Simulate battery consumption
-                battery = Math.max(0, battery - 0.5);
-
-                String telemetryJson = String.format(
-                        java.util.Locale.US,
-                        """
-                        {
-                            "droneId": "DRONE-101",
-                            "latitude": %.6f,
-                            "longitude": %.6f,
-                            "altitude": %.2f,
-                            "batteryLevel": %.2f,
-                            "timestamp": %d
-                        }
-                        """,
-                        latitude,
-                        longitude,
-                        altitude,
-                        battery,
-                        System.currentTimeMillis()
-                );
-
-                webSocket.sendText(telemetryJson, true).join();
+                    Thread.sleep(2000);
+                }
 
                 System.out.println(
-                        "Telemetry sent: " + telemetryJson
+                        droneId +
+                                " simulation completed."
                 );
 
-                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+
+                Thread.currentThread().interrupt();
+
+                System.out.println(
+                        droneId +
+                                " simulation interrupted."
+                );
+
+            } finally {
+
+                webSocket
+                        .sendClose(
+                                WebSocket.NORMAL_CLOSURE,
+                                "Simulation stopped"
+                        )
+                        .join();
             }
 
-            System.out.println("Drone simulation completed.");
+        });
 
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            System.out.println("Drone simulation interrupted.");
-
-        } finally {
-            webSocket.sendClose(
-                    WebSocket.NORMAL_CLOSURE,
-                    "Simulation stopped"
-            ).join();
-        }
+        droneThread.start();
     }
 }
