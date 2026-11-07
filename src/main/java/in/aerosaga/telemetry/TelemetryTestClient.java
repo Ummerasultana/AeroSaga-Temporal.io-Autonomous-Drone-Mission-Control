@@ -13,7 +13,7 @@ public class TelemetryTestClient {
 
         client.newWebSocketBuilder()
                 .buildAsync(
-                        URI.create("ws://localhost:8081/telemetry"),
+                        URI.create("ws://localhost:8081/telemetry?drone"),
                         new WebSocket.Listener() {
 
                             @Override

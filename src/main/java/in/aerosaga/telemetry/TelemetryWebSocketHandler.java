@@ -26,6 +26,11 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(
             WebSocketSession session) {
 
+        // Debug: show the WebSocket URL used by the client
+        System.out.println(
+                "WebSocket URI: " + session.getUri()
+        );
+
         String clientType =
                 session.getUri()
                         .getQuery();
