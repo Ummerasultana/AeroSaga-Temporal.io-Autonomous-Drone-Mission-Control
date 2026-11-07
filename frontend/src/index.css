@@ -760,3 +760,128 @@ tbody tr:hover {
     flex: 1;
   }
 }
+/* LIVE MISSION WORKFLOW TRACKER */
+
+.progress-section {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.025);
+}
+
+.progress-stage {
+  margin-top: 20px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.workflow-progress {
+  width: 100%;
+  height: 9px;
+  margin: 22px 0;
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.09);
+}
+
+.workflow-progress-fill {
+  height: 100%;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #6475ff, #26d7a0);
+  transition: width 0.5s ease;
+}
+
+.workflow-stages {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 25px 0;
+}
+
+.workflow-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  color: #8790a5;
+}
+
+.stage-icon {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.stage-complete .stage-icon {
+  color: #26d7a0;
+  border-color: #26d7a0;
+  background: rgba(38,215,160,0.12);
+}
+
+.stage-current .stage-icon {
+  color: #8290ff;
+  border-color: #8290ff;
+  background: rgba(130,144,255,0.15);
+  box-shadow: 0 0 15px rgba(130,144,255,0.2);
+}
+
+.workflow-stage small {
+  font-size: 10px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.09);
+}
+
+.progress-meta > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.refresh-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .workflow-stages {
+    gap: 5px;
+  }
+
+  .workflow-stage small {
+    font-size: 8px;
+  }
+
+  .stage-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .progress-section {
+    padding: 15px;
+  }
+
+  .progress-meta {
+    flex-direction: column;
+  }
+}

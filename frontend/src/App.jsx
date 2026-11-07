@@ -1,352 +1,665 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import {
-  Activity, Plane, LayoutDashboard, PlusCircle,
-  RefreshCw, Search, MapPin, Clock, CheckCircle2,
-  XCircle, AlertCircle, Menu, X, Navigation,
-  Radio, ArrowUpRight, Trash2
+  Activity,
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Crosshair,
+  LayoutDashboard,
+  List,
+  MapPin,
+  Navigation,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  ShieldAlert,
+  XCircle,
+  Plane,
+  Target,
 } from "lucide-react";
 
 const API = "/api/missions";
 
+const WORKFLOW_STAGES = [
+  "VALIDATING_ROUTE",
+  "PREPARING_DRONE",
+  "EXECUTING_MISSION",
+  "COMPLETED",
+];
+
+const terminalStatuses = ["COMPLETED", "ABORTED"];
+
+function Status({ value }) {
+  const status = (value || "STARTED").toUpperCase();
+
+  const className =
+    status === "COMPLETED"
+      ? "completed"
+      : status === "ABORTED"
+      ? "aborted"
+      : status === "IN_PROGRESS"
+      ? "active"
+      : "started";
+
+  return (
+    <span className={`status ${className}`}>
+      {status.replaceAll("_", " ")}
+    </span>
+  );
+}
+
+function StatCard({ title, value, icon: Icon, color }) {
+  return (
+    <div className="stat-card">
+      <div className="stat-info">
+        <p className="muted">{title}</p>
+        <h2>{value}</h2>
+      </div>
+
+      <div className={`stat-icon ${color}`}>
+        <Icon size={23} />
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  const [page, setPage] = useState("dashboard");
   const [missions, setMissions] = useState([]);
   const [selected, setSelected] = useState(null);
   const [progress, setProgress] = useState(null);
+
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("ALL");
-  const [page, setPage] = useState("dashboard");
-  const [mobileMenu, setMobileMenu] = useState(false);
+  const [success, setSuccess] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("ALL");
 
   const [form, setForm] = useState({
-    droneId: "DRONE001",
-    startLatitude: "28.6139",
-    startLongitude: "77.2090",
-    targetLatitude: "28.5355",
-    targetLongitude: "77.3910"
+    droneId: "",
+    startLatitude: "",
+    startLongitude: "",
+    targetLatitude: "",
+    targetLongitude: "",
   });
 
-  const [newStatus, setNewStatus] = useState("IN_PROGRESS");
-
-  const notify = (text, isError = false) => {
-    setMessage(isError ? "" : text);
-    setError(isError ? text : "");
-    setTimeout(() => {
-      setMessage("");
-      setError("");
-    }, 4500);
+  const getErrorMessage = (err) => {
+    return (
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      "Something went wrong. Please try again."
+    );
   };
 
-  const loadMissions = async () => {
-    setLoading(true);
+  // FETCH ALL MISSIONS
+  const fetchMissions = useCallback(async () => {
     try {
+      setLoading(true);
+      setError("");
+
       const response = await axios.get(API);
-      setMissions(Array.isArray(response.data) ? response.data : []);
+
+      const data = Array.isArray(response.data)
+        ? response.data
+        : response.data?.missions || [];
+
+      setMissions(data);
+
+      if (selected) {
+        const updated = data.find(
+          (mission) => mission.missionId === selected.missionId
+        );
+
+        if (updated) {
+          setSelected(updated);
+        }
+      }
     } catch (err) {
-      notify("Unable to load missions. Check your backend.", true);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  };
+  }, [selected]);
 
   useEffect(() => {
-    loadMissions();
+    fetchMissions();
   }, []);
 
-  const createMission = async (e) => {
-    e.preventDefault();
-
-    const body = {
-      droneId: form.droneId.trim(),
-      startLatitude: Number(form.startLatitude),
-      startLongitude: Number(form.startLongitude),
-      targetLatitude: Number(form.targetLatitude),
-      targetLongitude: Number(form.targetLongitude)
-    };
-
-    if (!body.droneId) {
-      notify("Please enter a drone ID.", true);
-      return;
-    }
-
-    if (
-      Math.abs(body.startLatitude) > 90 ||
-      Math.abs(body.targetLatitude) > 90 ||
-      Math.abs(body.startLongitude) > 180 ||
-      Math.abs(body.targetLongitude) > 180
-    ) {
-      notify("Enter valid GPS coordinates.", true);
-      return;
-    }
-
-    if (
-      body.startLatitude === body.targetLatitude &&
-      body.startLongitude === body.targetLongitude
-    ) {
-      notify("Start and target coordinates must be different.", true);
-      return;
-    }
-
-    try {
-      await axios.post(API, body);
-      notify("Mission created successfully!");
-      setPage("missions");
-      await loadMissions();
-    } catch (err) {
-      notify(err.response?.data?.message || "Mission creation failed.", true);
-    }
-  };
-
-  const openMission = async (mission) => {
-    setSelected(mission);
-    setPage("details");
-    setProgress(null);
+  // FETCH SELECTED MISSION PROGRESS
+  const fetchProgress = useCallback(async (missionId) => {
+    if (!missionId) return;
 
     try {
       const response = await axios.get(
-        `${API}/${mission.missionId}/progress`
+        `${API}/${missionId}/progress`
       );
+
       setProgress(response.data);
-    } catch {
-      notify("Unable to load mission progress.", true);
-    }
-  };
-
-  const updateStatus = async () => {
-    if (!selected) return;
-
-    try {
-      await axios.put(`${API}/${selected.missionId}/status`, {
-        status: newStatus
-      });
-      notify("Mission status updated.");
-      await loadMissions();
-      const updated = await axios.get(`${API}/${selected.missionId}`);
-      setSelected(updated.data);
-      const progressResponse = await axios.get(
-        `${API}/${selected.missionId}/progress`
-      );
-      setProgress(progressResponse.data);
     } catch (err) {
-      notify(err.response?.data?.message || "Status update failed.", true);
+      console.error("Progress fetching failed:", err);
     }
-  };
+  }, []);
 
-  const cancelMission = async () => {
-    if (!selected) return;
-
-    if (!window.confirm("Are you sure you want to cancel this mission?")) {
+  // AUTOMATIC LIVE TRACKING
+  useEffect(() => {
+    if (
+      page !== "details" ||
+      !selected?.missionId ||
+      terminalStatuses.includes(selected.status)
+    ) {
       return;
     }
 
-    try {
-      await axios.put(`${API}/${selected.missionId}/cancel`);
-      notify("Mission cancelled successfully.");
-      await loadMissions();
+    fetchProgress(selected.missionId);
 
-      const updated = await axios.get(`${API}/${selected.missionId}`);
-      setSelected(updated.data);
+    const interval = setInterval(() => {
+      fetchProgress(selected.missionId);
+      fetchMissions();
+    }, 3000);
 
-      const progressResponse = await axios.get(
-        `${API}/${selected.missionId}/progress`
-      );
-      setProgress(progressResponse.data);
-    } catch (err) {
-      notify(err.response?.data?.message || "Cancellation failed.", true);
-    }
-  };
+    return () => clearInterval(interval);
+  }, [
+    page,
+    selected?.missionId,
+    selected?.status,
+    fetchProgress,
+    fetchMissions,
+  ]);
 
+  // DASHBOARD STATISTICS
+  const totalMissions = missions.length;
+
+  const activeMissions = missions.filter((mission) =>
+    ["STARTED", "IN_PROGRESS"].includes(mission.status)
+  ).length;
+
+  const completedMissions = missions.filter(
+    (mission) => mission.status === "COMPLETED"
+  ).length;
+
+  const abortedMissions = missions.filter(
+    (mission) => mission.status === "ABORTED"
+  ).length;
+
+  // SEARCH AND FILTER
   const filteredMissions = missions.filter((mission) => {
     const matchesSearch =
-      (mission.droneId || "").toLowerCase().includes(search.toLowerCase()) ||
-      (mission.missionId || "").toLowerCase().includes(search.toLowerCase());
+      (mission.droneId || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (mission.missionId || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
     const matchesStatus =
-      filter === "ALL" || mission.status === filter;
+      filterStatus === "ALL" ||
+      mission.status === filterStatus;
 
     return matchesSearch && matchesStatus;
   });
 
-  const counts = {
-    total: missions.length,
-    active: missions.filter(
-      m => ["STARTED", "IN_PROGRESS"].includes(m.status)
-    ).length,
-    completed: missions.filter(m => m.status === "COMPLETED").length,
-    aborted: missions.filter(m => m.status === "ABORTED").length
+  // CREATE MISSION
+  const handleCreateMission = async (e) => {
+    e.preventDefault();
+
+    setError("");
+    setSuccess("");
+
+    const coordinates = [
+      form.startLatitude,
+      form.startLongitude,
+      form.targetLatitude,
+      form.targetLongitude,
+    ];
+
+    if (
+      !form.droneId.trim() ||
+      coordinates.some((value) => value === "")
+    ) {
+      setError("Please fill in all mission details.");
+      return;
+    }
+
+    const latitudeValues = [
+      Number(form.startLatitude),
+      Number(form.targetLatitude),
+    ];
+
+    const longitudeValues = [
+      Number(form.startLongitude),
+      Number(form.targetLongitude),
+    ];
+
+    if (
+      latitudeValues.some(
+        (value) => !Number.isFinite(value) || value < -90 || value > 90
+      ) ||
+      longitudeValues.some(
+        (value) => !Number.isFinite(value) || value < -180 || value > 180
+      )
+    ) {
+      setError("Please enter valid GPS coordinates.");
+      return;
+    }
+
+    const payload = {
+      droneId: form.droneId.trim(),
+      startLatitude: Number(form.startLatitude),
+      startLongitude: Number(form.startLongitude),
+      targetLatitude: Number(form.targetLatitude),
+      targetLongitude: Number(form.targetLongitude),
+    };
+
+    try {
+      setCreating(true);
+
+      const response = await axios.post(API, payload);
+
+      setSuccess("Mission created successfully!");
+
+      setForm({
+        droneId: "",
+        startLatitude: "",
+        startLongitude: "",
+        targetLatitude: "",
+        targetLongitude: "",
+      });
+
+      await fetchMissions();
+
+      if (response.data?.missionId) {
+        setSelected(response.data);
+        setProgress(null);
+        setPage("details");
+        fetchProgress(response.data.missionId);
+      } else {
+        setPage("dashboard");
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const navItems = [
-    { name: "Dashboard", icon: LayoutDashboard, page: "dashboard" },
-    { name: "All Missions", icon: Plane, page: "missions" },
-    { name: "Create Mission", icon: PlusCircle, page: "create" }
-  ];
+  // OPEN MISSION DETAILS
+  const openMission = async (mission) => {
+    setSelected(mission);
+    setProgress(null);
+    setError("");
+    setPage("details");
 
-  const statusStyle = (status) => {
-    if (status === "COMPLETED") return "green";
-    if (status === "ABORTED") return "red";
-    if (status === "IN_PROGRESS") return "blue";
-    return "yellow";
+    await fetchProgress(mission.missionId);
   };
 
-  const Status = ({ value }) => (
-    <span className={`status ${statusStyle(value)}`}>
-      <span className="status-dot"></span>
-      {value || "UNKNOWN"}
-    </span>
-  );
+  // UPDATE MISSION STATUS
+  const handleStatusUpdate = async (newStatus) => {
+    if (!selected?.missionId) return;
 
-  const StatCard = ({ title, value, icon: Icon, color }) => (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <Icon size={21} />
-      </div>
-      <div>
-        <p className="muted">{title}</p>
-        <h2>{value}</h2>
-      </div>
-    </div>
-  );
+    try {
+      setError("");
+      setSuccess("");
 
-  return (
+      await axios.put(
+        `${API}/${selected.missionId}/status`,
+        { status: newStatus }
+      );
+
+      setSuccess("Mission status updated successfully.");
+
+      await fetchMissions();
+
+      const response = await axios.get(
+        `${API}/${selected.missionId}`
+      );
+
+      setSelected(response.data);
+      await fetchProgress(selected.missionId);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  // CANCEL MISSION
+  const handleCancelMission = async () => {
+    if (!selected?.missionId) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this mission?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setError("");
+      setSuccess("");
+
+      await axios.put(
+        `${API}/${selected.missionId}/cancel`
+      );
+
+      setSuccess("Mission cancelled successfully.");
+
+      const response = await axios.get(
+        `${API}/${selected.missionId}`
+      );
+
+      setSelected(response.data);
+
+      await fetchMissions();
+      await fetchProgress(selected.missionId);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const changePage = (newPage) => {
+    setError("");
+    setSuccess("");
+    setPage(newPage);
+  };
+
+  // WORKFLOW PROGRESS
+  const currentStage =
+    progress?.currentStage ||
+    selected?.currentStage ||
+    selected?.status ||
+    "VALIDATING_ROUTE";
+
+  const currentStageIndex = WORKFLOW_STAGES.indexOf(currentStage);
+
+  const isCompleted =
+    progress?.completed ||
+    selected?.status === "COMPLETED";
+
+  const isAborted =
+    selected?.status === "ABORTED" ||
+    currentStage === "ABORTED";
+
+  const progressPercentage = isAborted
+    ? Math.max(0, ((Math.max(currentStageIndex, 0) + 1) / 4) * 100)
+    : isCompleted
+    ? 100
+    : currentStageIndex >= 0
+    ? ((currentStageIndex + 1) / 4) * 100
+    : 0;return (
     <div className="app-shell">
-      <aside className={`sidebar ${mobileMenu ? "mobile-open" : ""}`}>
+
+      {/* SIDEBAR */}
+
+      <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon"><Navigation size={23} /></div>
+          <div className="brand-icon">
+            <Plane size={25} />
+          </div>
+
           <div>
-            <h2>AEROSAGA</h2>
+            <h2>AeroSaga</h2>
             <span>MISSION CONTROL</span>
           </div>
-          <button className="mobile-close" onClick={() => setMobileMenu(false)}>
-            <X size={20} />
-          </button>
         </div>
 
-        <p className="nav-label">WORKSPACE</p>
+        <div className="sidebar-label">WORKSPACE</div>
 
-        {navItems.map((item) => (
+        <nav className="sidebar-nav">
           <button
-            key={item.page}
-            className={`nav-item ${page === item.page ? "active" : ""}`}
-            onClick={() => {
-              setPage(item.page);
-              setMobileMenu(false);
-            }}
+            className={page === "dashboard" ? "nav-item active" : "nav-item"}
+            onClick={() => changePage("dashboard")}
           >
-            <item.icon size={19} />
-            {item.name}
+            <LayoutDashboard size={19} />
+            Dashboard
           </button>
-        ))}
+
+          <button
+            className={page === "missions" ? "nav-item active" : "nav-item"}
+            onClick={() => changePage("missions")}
+          >
+            <List size={19} />
+            All Missions
+          </button>
+
+          <button
+            className={page === "create" ? "nav-item active" : "nav-item"}
+            onClick={() => changePage("create")}
+          >
+            <Plus size={19} />
+            Create Mission
+          </button>
+        </nav>
 
         <div className="sidebar-bottom">
-          <div className="connection">
+          <div className="system-status">
             <span className="online-dot"></span>
             <div>
-              <strong>Backend Connection</strong>
-              <small>Local API · Port 8080</small>
+              <strong>System Online</strong>
+              <small>Mission services ready</small>
             </div>
           </div>
-          <p> AEROSAGA · DRONE CONTROL SYSTEM</p>
+
+          <p>AeroSaga Mission Control</p>
+          <small>Temporal-powered drone management</small>
         </div>
       </aside>
 
+      {/* MAIN CONTENT */}
+
       <main className="main-content">
+
+        {/* TOPBAR */}
+
         <header className="topbar">
-          <button className="mobile-menu" onClick={() => setMobileMenu(true)}>
-            <Menu />
-          </button>
           <div>
-            <p className="muted">AEROSAGA / WORKSPACE</p>
-            <h2>
-              {page === "dashboard" ? "Mission Dashboard" :
-               page === "missions" ? "Mission Management" :
-               page === "create" ? "Create New Mission" :
-               "Mission Details"}
-            </h2>
+            <p className="eyebrow">AUTONOMOUS DRONE PLATFORM</p>
+
+            <h1>
+              {page === "dashboard"
+                ? "Dashboard"
+                : page === "missions"
+                ? "All Missions"
+                : page === "create"
+                ? "Create Mission"
+                : "Mission Details"}
+            </h1>
           </div>
-          <div className="top-actions">
-            <span className="live-indicator">
-              <span className="online-dot"></span> SYSTEM ONLINE
-            </span>
-            <button className="icon-button" onClick={loadMissions}>
+
+          <div className="topbar-actions">
+            <button
+              className="icon-button"
+              onClick={fetchMissions}
+              title="Refresh missions"
+            >
               <RefreshCw size={18} />
+            </button>
+
+            <button
+              className="primary-button"
+              onClick={() => changePage("create")}
+            >
+              <Plus size={17} />
+              New Mission
             </button>
           </div>
         </header>
 
-        {(message || error) && (
-          <div className={`notification ${error ? "error" : "success"}`}>
-            {error || message}
+        {/* ALERTS */}
+
+        {error && (
+          <div className="alert error-alert">
+            <AlertCircle size={18} />
+            <span>{error}</span>
+
+            <button onClick={() => setError("")}>
+              <XCircle size={17} />
+            </button>
           </div>
         )}
 
+        {success && (
+          <div className="alert success-alert">
+            <CheckCircle2 size={18} />
+            <span>{success}</span>
+
+            <button onClick={() => setSuccess("")}>
+              <XCircle size={17} />
+            </button>
+          </div>
+        )}
+
+        {/* DASHBOARD */}
+
         {page === "dashboard" && (
           <>
-            <section className="welcome">
+            <section className="welcome-section">
               <div>
-                <p className="eyebrow">AUTONOMOUS FLEET MANAGEMENT</p>
-                <h1>Mission Overview</h1>
-                <p>Monitor, manage and control your drone missions.</p>
+                <p className="eyebrow">MISSION OVERVIEW</p>
+                <h2>Welcome to Mission Control</h2>
+                <p className="muted">
+                  Monitor, manage and track your autonomous drone missions.
+                </p>
               </div>
-              <button className="primary-button" onClick={() => setPage("create")}>
-                <PlusCircle size={18} /> Create Mission
-              </button>
+
+              <div className="welcome-icon">
+                <Crosshair size={38} />
+              </div>
             </section>
 
             <section className="stats-grid">
-              <StatCard title="Total Missions" value={counts.total} icon={Plane} color="purple" />
-              <StatCard title="Active Missions" value={counts.active} icon={Activity} color="blue" />
-              <StatCard title="Completed" value={counts.completed} icon={CheckCircle2} color="green" />
-              <StatCard title="Aborted" value={counts.aborted} icon={XCircle} color="red" />
+              <StatCard
+                title="Total Missions"
+                value={totalMissions}
+                icon={Navigation}
+                color="blue"
+              />
+
+              <StatCard
+                title="Active Missions"
+                value={activeMissions}
+                icon={Activity}
+                color="purple"
+              />
+
+              <StatCard
+                title="Completed Missions"
+                value={completedMissions}
+                icon={CheckCircle2}
+                color="green"
+              />
+
+              <StatCard
+                title="Aborted Missions"
+                value={abortedMissions}
+                icon={ShieldAlert}
+                color="red"
+              />
             </section>
 
             <section className="panel">
               <div className="panel-heading">
                 <div>
                   <h3>Recent Missions</h3>
-                  <p className="muted">Latest mission activity</p>
+                  <p className="muted">
+                    Latest drone mission activity
+                  </p>
                 </div>
-                <button className="text-button" onClick={() => setPage("missions")}>
-                  View all <ArrowUpRight size={16} />
+
+                <button
+                  className="text-button"
+                  onClick={() => changePage("missions")}
+                >
+                  View All <ArrowLeft size={15} />
                 </button>
               </div>
 
-              <MissionTable
-                data={missions.slice(0, 5)}
-                onSelect={openMission}
-                loading={loading}
-                Status={Status}
-              />
+              {loading ? (
+                <p className="empty-state">Loading missions...</p>
+              ) : missions.length === 0 ? (
+                <div className="empty-state">
+                  <Plane size={35} />
+                  <h3>No missions yet</h3>
+                  <p>Create your first drone mission to get started.</p>
+
+                  <button
+                    className="primary-button"
+                    onClick={() => changePage("create")}
+                  >
+                    <Plus size={17} />
+                    Create Mission
+                  </button>
+                </div>
+              ) : (
+                <div className="mission-list">
+                  {missions.slice(0, 5).map((mission) => (
+                    <div
+                      className="mission-row"
+                      key={mission.missionId}
+                      onClick={() => openMission(mission)}
+                    >
+                      <div className="mission-avatar">
+                        <Plane size={19} />
+                      </div>
+
+                      <div className="mission-row-info">
+                        <strong>{mission.droneId}</strong>
+                        <small>{mission.missionId}</small>
+                      </div>
+
+                      <Status value={mission.status} />
+
+                      <button className="view-button">
+                        View <ArrowLeft size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           </>
         )}
+
+        {/* ALL MISSIONS */}
 
         {page === "missions" && (
           <section className="panel">
             <div className="panel-heading">
               <div>
                 <h3>All Missions</h3>
-                <p className="muted">Search and manage drone missions</p>
+                <p className="muted">
+                  Manage and monitor all drone missions
+                </p>
               </div>
-              <button className="primary-button" onClick={() => setPage("create")}>
-                <PlusCircle size={18} /> New Mission
+
+              <button
+                className="primary-button"
+                onClick={() => changePage("create")}
+              >
+                <Plus size={17} />
+                Create Mission
               </button>
             </div>
 
-            <div className="toolbar">
+            <div className="filter-bar">
               <div className="search-box">
-                <Search size={18} />
+                <Search size={17} />
+
                 <input
+                  type="text"
                   placeholder="Search drone ID or mission ID..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <select value={filter} onChange={e => setFilter(e.target.value)}>
-                <option value="ALL">All Statuses</option>
+
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="ALL">All Status</option>
                 <option value="STARTED">Started</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="COMPLETED">Completed</option>
@@ -354,190 +667,399 @@ function App() {
               </select>
             </div>
 
-            <MissionTable
-              data={filteredMissions}
-              onSelect={openMission}
-              loading={loading}
-              Status={Status}
-            />
+            {loading ? (
+              <p className="empty-state">Loading missions...</p>
+            ) : filteredMissions.length === 0 ? (
+              <div className="empty-state">
+                <Search size={32} />
+                <h3>No matching missions</h3>
+                <p>Try changing your search or filter.</p>
+              </div>
+            ) : (
+              <div className="mission-list">
+                {filteredMissions.map((mission) => (
+                  <div
+                    className="mission-row"
+                    key={mission.missionId}
+                    onClick={() => openMission(mission)}
+                  >
+                    <div className="mission-avatar">
+                      <Plane size={19} />
+                    </div>
+
+                    <div className="mission-row-info">
+                      <strong>{mission.droneId}</strong>
+                      <small>{mission.missionId}</small>
+                    </div>
+
+                    <Status value={mission.status} />
+
+                    <button className="view-button">
+                      Details <ArrowLeft size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
+        {/* CREATE MISSION */}
+
         {page === "create" && (
-          <section className="form-panel">
+          <section className="panel form-panel">
             <div className="panel-heading">
               <div>
-                <h3>Launch a New Mission</h3>
-                <p className="muted">Enter drone and GPS coordinates.</p>
+                <p className="eyebrow">MISSION CONFIGURATION</p>
+                <h3>Create New Mission</h3>
+                <p className="muted">
+                  Enter drone details and GPS coordinates.
+                </p>
               </div>
-              <div className="form-icon"><Plane size={25} /></div>
+
+              <div className="form-icon">
+                <Navigation size={27} />
+              </div>
             </div>
 
-            <form onSubmit={createMission}>
-              <label>Drone ID</label>
-              <input
-                value={form.droneId}
-                onChange={e => setForm({...form, droneId: e.target.value})}
-                placeholder="e.g. DRONE001"
-                required
-              />
+            <form onSubmit={handleCreateMission}>
+              <div className="form-group">
+                <label>Drone ID</label>
 
-              <div className="coordinate-heading">
-                <MapPin size={18} /> Starting Coordinates
-              </div>
-              <div className="form-grid">
-                <div>
-                  <label>Start Latitude</label>
-                  <input type="number" step="any" required
-                    value={form.startLatitude}
-                    onChange={e => setForm({...form, startLatitude: e.target.value})}/>
-                </div>
-                <div>
-                  <label>Start Longitude</label>
-                  <input type="number" step="any" required
-                    value={form.startLongitude}
-                    onChange={e => setForm({...form, startLongitude: e.target.value})}/>
-                </div>
+                <input
+                  type="text"
+                  placeholder="Example: DRONE-001"
+                  value={form.droneId}
+                  onChange={(e) =>
+                    setForm({ ...form, droneId: e.target.value })
+                  }
+                  required
+                />
               </div>
 
-              <div className="coordinate-heading">
-                <Navigation size={18} /> Target Coordinates
-              </div>
-              <div className="form-grid">
-                <div>
-                  <label>Target Latitude</label>
-                  <input type="number" step="any" required
-                    value={form.targetLatitude}
-                    onChange={e => setForm({...form, targetLatitude: e.target.value})}/>
-                </div>
-                <div>
-                  <label>Target Longitude</label>
-                  <input type="number" step="any" required
-                    value={form.targetLongitude}
-                    onChange={e => setForm({...form, targetLongitude: e.target.value})}/>
+              <div className="coordinate-section">
+                <h4>
+                  <MapPin size={18} />
+                  Starting Coordinates
+                </h4>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Start Latitude</label>
+
+                    <input
+                      type="number"
+                      step="any"
+                      min="-90"
+                      max="90"
+                      placeholder="28.6139"
+                      value={form.startLatitude}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          startLatitude: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Start Longitude</label>
+
+                    <input
+                      type="number"
+                      step="any"
+                      min="-180"
+                      max="180"
+                      placeholder="77.2090"
+                      value={form.startLongitude}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          startLongitude: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="form-note">
-                <AlertCircle size={17}/>
-                Coordinates must be valid GPS values and the start and target must differ.
+              <div className="coordinate-section">
+                <h4>
+                  <Target size={18} />
+                  Target Coordinates
+                </h4>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Target Latitude</label>
+
+                    <input
+                      type="number"
+                      step="any"
+                      min="-90"
+                      max="90"
+                      placeholder="28.5355"
+                      value={form.targetLatitude}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          targetLatitude: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Target Longitude</label>
+
+                    <input
+                      type="number"
+                      step="any"
+                      min="-180"
+                      max="180"
+                      placeholder="77.3910"
+                      value={form.targetLongitude}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          targetLongitude: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
-              <button className="primary-button submit-button" type="submit">
-                <Plane size={18}/> Launch Mission
-              </button>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => changePage("dashboard")}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={creating}
+                >
+                  {creating ? (
+                    <>
+                      <RefreshCw size={17} />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={17} />
+                      Start Mission
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
           </section>
         )}
 
+        {/* MISSION DETAILS AND LIVE TRACKING */}
+
         {page === "details" && selected && (
           <section className="panel detail-panel">
+
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">MISSION IDENTIFICATION</p>
+                <p className="eyebrow">
+                  MISSION IDENTIFICATION
+                </p>
+
                 <h3>{selected.droneId}</h3>
-                <p className="muted mission-id">{selected.missionId}</p>
+
+                <p className="muted mission-id">
+                  {selected.missionId}
+                </p>
               </div>
-              <Status value={selected.status}/>
+
+              <Status value={selected.status} />
             </div>
 
             <div className="detail-grid">
               <div className="detail-card">
-                <MapPin size={19}/>
+                <MapPin size={19} />
+
                 <p className="muted">Start Coordinates</p>
-                <strong>{selected.startLatitude}, {selected.startLongitude}</strong>
+
+                <strong>
+                  {selected.startLatitude}, {selected.startLongitude}
+                </strong>
               </div>
+
               <div className="detail-card">
-                <Navigation size={19}/>
+                <Navigation size={19} />
+
                 <p className="muted">Target Coordinates</p>
-                <strong>{selected.targetLatitude}, {selected.targetLongitude}</strong>
+
+                <strong>
+                  {selected.targetLatitude}, {selected.targetLongitude}
+                </strong>
               </div>
             </div>
+
+            {/* LIVE WORKFLOW TRACKER */}
 
             <div className="progress-section">
-              <h3><Activity size={19}/> Mission Progress</h3>
-              {progress ? (
-                <>
-                  <div className="progress-stage">{progress.currentStage || "Not available"}</div>
-                  <p className="muted">Current workflow stage</p>
-                  <Status value={progress.status}/>
-                  <p className="muted">
-                    Completed: {String(progress.completed)}
-                  </p>
-                </>
-              ) : <p className="muted">Loading progress...</p>}
-            </div>
+              <div className="panel-heading">
+                <div>
+                  <h3>
+                    <Activity size={19} />
+                    Live Mission Progress
+                  </h3>
 
-            <div className="action-section">
-              <div>
-                <label>Update Mission Status</label>
-                <div className="status-actions">
-                  <select value={newStatus} onChange={e => setNewStatus(e.target.value)}>
-                    <option value="IN_PROGRESS">IN_PROGRESS</option>
-                    <option value="COMPLETED">COMPLETED</option>
-                  </select>
-                  <button className="secondary-button" onClick={updateStatus}>
-                    Update Status
-                  </button>
+                  <p className="muted">
+                    Temporal workflow execution
+                  </p>
+                </div>
+
+                {!terminalStatuses.includes(selected.status) && (
+                  <span className="live-indicator">
+                    LIVE
+                  </span>
+                )}
+              </div>
+
+              <div className="progress-stage">
+                {isAborted
+                  ? "MISSION ABORTED"
+                  : isCompleted
+                  ? "MISSION COMPLETED"
+                  : currentStage.replaceAll("_", " ")}
+              </div>
+
+              <div className="workflow-progress">
+                <div
+                  className="workflow-progress-fill"
+                  style={{ width: `${progressPercentage}%` }}
+                />
+              </div>
+
+              <div className="workflow-stages">
+                {WORKFLOW_STAGES.map((stage, index) => {
+                  const isStageComplete =
+                    isCompleted ||
+                    (!isAborted && index < currentStageIndex);
+
+                  const isCurrent =
+                    !isCompleted &&
+                    !isAborted &&
+                    index === currentStageIndex;
+
+                  return (
+                    <div
+                      className={`workflow-stage ${
+                        isStageComplete ? "stage-complete" : ""
+                      } ${isCurrent ? "stage-current" : ""}`}
+                      key={stage}
+                    >
+                      <div className="stage-icon">
+                        {isStageComplete ? (
+                          <CheckCircle2 size={19} />
+                        ) : (
+                          index + 1
+                        )}
+                      </div>
+
+                      <small>{stage.replaceAll("_", " ")}</small>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="progress-meta">
+                <div>
+                  <Clock size={17} />
+                  <span>
+                    Status: <strong>{selected.status}</strong>
+                  </span>
+                </div>
+
+                <div>
+                  {isAborted ? (
+                    <XCircle size={17} />
+                  ) : (
+                    <CheckCircle2 size={17} />
+                  )}
+
+                  <span>
+                    {isAborted
+                      ? "Mission stopped"
+                      : isCompleted
+                      ? "All stages completed"
+                      : progress?.completed
+                      ? "Workflow completed"
+                      : "Workflow in progress"}
+                  </span>
                 </div>
               </div>
-              {["STARTED", "IN_PROGRESS"].includes(selected.status) && (
-                <button className="danger-button" onClick={cancelMission}>
-                  <XCircle size={18}/> Cancel Mission
+
+              <p className="refresh-note muted">
+                <RefreshCw size={13} />
+                Progress refreshes automatically every 3 seconds.
+              </p>
+            </div>
+
+            {/* MISSION ACTIONS */}
+
+            <div className="mission-actions">
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  changePage("missions");
+                  fetchMissions();
+                }}
+              >
+                <ArrowLeft size={16} />
+                Back to Missions
+              </button>
+
+              {!terminalStatuses.includes(selected.status) && (
+                <button
+                  className="danger-button"
+                  onClick={handleCancelMission}
+                >
+                  <XCircle size={17} />
+                  Cancel Mission
                 </button>
               )}
             </div>
+          </section>
+        )}
 
-            <button className="secondary-button back-button" onClick={() => setPage("missions")}>
-              Back to Missions
+        {/* NO MISSION SELECTED */}
+
+        {page === "details" && !selected && (
+          <section className="panel empty-state">
+            <AlertCircle size={35} />
+            <h3>No mission selected</h3>
+            <p>Please select a mission from the mission list.</p>
+
+            <button
+              className="primary-button"
+              onClick={() => changePage("missions")}
+              >
+              View Missions
             </button>
           </section>
         )}
+
+        <footer className="app-footer">
+          <span>AeroSaga © 2026</span>
+          <span>Autonomous Drone Mission Control</span>
+        </footer>
       </main>
-    </div>
-  );
-}
-
-function MissionTable({ data, onSelect, loading, Status }) {
-  if (loading) return <p className="empty-state">Loading missions...</p>;
-
-  if (!data.length) {
-    return <div className="empty-state">
-      <Plane size={32}/>
-      <p>No missions found.</p>
-    </div>;
-  }
-
-  return (
-    <div className="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>MISSION ID</th>
-            <th>DRONE</th>
-            <th>STATUS</th>
-            <th>START LATITUDE</th>
-            <th>ACTION</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((mission) => (
-            <tr key={mission.missionId}>
-              <td className="id-cell">
-                {mission.missionId?.slice(0, 12)}...
-              </td>
-              <td>{mission.droneId}</td>
-              <td><Status value={mission.status}/></td>
-              <td>{mission.startLatitude}</td>
-              <td>
-                <button className="view-button" onClick={() => onSelect(mission)}>
-                  View Details <ArrowUpRight size={14}/>
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
