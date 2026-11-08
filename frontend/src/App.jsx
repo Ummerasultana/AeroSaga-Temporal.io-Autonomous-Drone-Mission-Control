@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
+
 import {
   Activity,
   AlertCircle,
   ArrowLeft,
+  BarChart3,
   CheckCircle2,
   Clock,
   Crosshair,
@@ -19,7 +21,22 @@ import {
   XCircle,
   Plane,
   Target,
+  PieChart as PieChartIcon,
 } from "lucide-react";
+
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 
 const API = "/api/missions";
 
@@ -32,36 +49,34 @@ const WORKFLOW_STAGES = [
 
 const terminalStatuses = ["COMPLETED", "ABORTED"];
 
-function Status({ value }) {
-  const status = (value || "STARTED").toUpperCase();
+function formatStatus(status) {
+  if (!status) return "UNKNOWN";
 
-  const className =
-    status === "COMPLETED"
-      ? "completed"
-      : status === "ABORTED"
-      ? "aborted"
-      : status === "IN_PROGRESS"
-      ? "active"
-      : "started";
+  return status.replaceAll("_", " ");
+}
+
+function StatusBadge({ status }) {
+  const normalized = (status || "UNKNOWN").toLowerCase();
 
   return (
-    <span className={`status ${className}`}>
-      {status.replaceAll("_", " ")}
+    <span className={`status status-${normalized}`}>
+      <span className="status-dot"></span>
+      {formatStatus(status)}
     </span>
   );
 }
 
 function StatCard({ title, value, icon: Icon, color }) {
   return (
-    <div className="stat-card">
-      <div className="stat-info">
-        <p className="muted">{title}</p>
-        <h2>{value}</h2>
+    <div className={`stat-card stat-${color}`}>
+      <div className="stat-card-top">
+        <span>{title}</span>
+        <div className="stat-icon">
+          <Icon size={21} />
+        </div>
       </div>
 
-      <div className={`stat-icon ${color}`}>
-        <Icon size={23} />
-      </div>
+      <h2>{value}</h2>
     </div>
   );
 }
@@ -74,64 +89,52 @@ function App() {
 
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [mobileMenu, setMobileMenu] = useState(false);
 
   const [form, setForm] = useState({
-    droneId: "",
-    startLatitude: "",
-    startLongitude: "",
-    targetLatitude: "",
-    targetLongitude: "",
+    droneId: "DRONE001",
+    startLatitude: "28.6139",
+    startLongitude: "77.2090",
+    targetLatitude: "28.5355",
+    targetLongitude: "77.3910",
   });
 
-  const getErrorMessage = (err) => {
-    return (
-      err.response?.data?.message ||
-      err.response?.data?.error ||
-      err.message ||
-      "Something went wrong. Please try again."
-    );
-  };
-
-  // FETCH ALL MISSIONS
   const fetchMissions = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
 
       const response = await axios.get(API);
-
-      const data = Array.isArray(response.data)
-        ? response.data
-        : response.data?.missions || [];
+      const data = Array.isArray(response.data) ? response.data : [];
 
       setMissions(data);
 
-      if (selected) {
-        const updated = data.find(
-          (mission) => mission.missionId === selected.missionId
-        );
+      setSelected((previous) => {
+        if (!previous) return previous;
 
-        if (updated) {
-          setSelected(updated);
-        }
-      }
+        return (
+          data.find(
+            (mission) => mission.missionId === previous.missionId
+          ) || previous
+        );
+      });
+
+      setError("");
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(
+        err.response?.data?.message ||
+          "Unable to load missions. Check whether the backend is running."
+      );
     } finally {
       setLoading(false);
     }
-  }, [selected]);
-
-  useEffect(() => {
-    fetchMissions();
   }, []);
 
-  // FETCH SELECTED MISSION PROGRESS
   const fetchProgress = useCallback(async (missionId) => {
     if (!missionId) return;
 
@@ -142,37 +145,29 @@ function App() {
 
       setProgress(response.data);
     } catch (err) {
-      console.error("Progress fetching failed:", err);
+      console.error("Progress request failed:", err);
     }
   }, []);
 
-  // AUTOMATIC LIVE TRACKING
   useEffect(() => {
-    if (
-      page !== "details" ||
-      !selected?.missionId ||
-      terminalStatuses.includes(selected.status)
-    ) {
-      return;
-    }
+    fetchMissions();
+  }, [fetchMissions]);
 
-    fetchProgress(selected.missionId);
+  useEffect(() => {
+    if (page !== "details" || !selected?.missionId) return;
+
+    const missionId = selected.missionId;
+
+    fetchProgress(missionId);
 
     const interval = setInterval(() => {
-      fetchProgress(selected.missionId);
+      fetchProgress(missionId);
       fetchMissions();
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [
-    page,
-    selected?.missionId,
-    selected?.status,
-    fetchProgress,
-    fetchMissions,
-  ]);
+  }, [page, selected?.missionId, fetchProgress, fetchMissions]);
 
-  // DASHBOARD STATISTICS
   const totalMissions = missions.length;
 
   const activeMissions = missions.filter((mission) =>
@@ -187,62 +182,62 @@ function App() {
     (mission) => mission.status === "ABORTED"
   ).length;
 
-  // SEARCH AND FILTER
   const filteredMissions = missions.filter((mission) => {
+    const search = searchTerm.toLowerCase();
+
     const matchesSearch =
-      (mission.droneId || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      (mission.missionId || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
+      (mission.droneId || "").toLowerCase().includes(search) ||
+      (mission.missionId || "").toLowerCase().includes(search);
 
     const matchesStatus =
-      filterStatus === "ALL" ||
-      mission.status === filterStatus;
+      filterStatus === "ALL" || mission.status === filterStatus;
 
     return matchesSearch && matchesStatus;
   });
 
-  // CREATE MISSION
-  const handleCreateMission = async (e) => {
-    e.preventDefault();
+  const changePage = (nextPage) => {
+    setPage(nextPage);
+    setMobileMenu(false);
+    setError("");
+    setSuccess("");
+  };
+
+  const updateForm = (event) => {
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const createMission = async (event) => {
+    event.preventDefault();
 
     setError("");
     setSuccess("");
 
     const coordinates = [
-      form.startLatitude,
-      form.startLongitude,
-      form.targetLatitude,
-      form.targetLongitude,
-    ];
-
-    if (
-      !form.droneId.trim() ||
-      coordinates.some((value) => value === "")
-    ) {
-      setError("Please fill in all mission details.");
-      return;
-    }
-
-    const latitudeValues = [
       Number(form.startLatitude),
-      Number(form.targetLatitude),
-    ];
-
-    const longitudeValues = [
       Number(form.startLongitude),
+      Number(form.targetLatitude),
       Number(form.targetLongitude),
     ];
 
+    if (!form.droneId.trim()) {
+      setError("Please enter a drone ID.");
+      return;
+    }
+
     if (
-      latitudeValues.some(
-        (value) => !Number.isFinite(value) || value < -90 || value > 90
+      coordinates.some(
+        (value) =>
+          !Number.isFinite(value) ||
+          value < -180 ||
+          value > 180
       ) ||
-      longitudeValues.some(
-        (value) => !Number.isFinite(value) || value < -180 || value > 180
-      )
+      Math.abs(coordinates[0]) > 90 ||
+      Math.abs(coordinates[2]) > 90
     ) {
       setError("Please enter valid GPS coordinates.");
       return;
@@ -250,10 +245,10 @@ function App() {
 
     const payload = {
       droneId: form.droneId.trim(),
-      startLatitude: Number(form.startLatitude),
-      startLongitude: Number(form.startLongitude),
-      targetLatitude: Number(form.targetLatitude),
-      targetLongitude: Number(form.targetLongitude),
+      startLatitude: coordinates[0],
+      startLongitude: coordinates[1],
+      targetLatitude: coordinates[2],
+      targetLongitude: coordinates[3],
     };
 
     try {
@@ -263,71 +258,47 @@ function App() {
 
       setSuccess("Mission created successfully!");
 
-      setForm({
-        droneId: "",
-        startLatitude: "",
-        startLongitude: "",
-        targetLatitude: "",
-        targetLongitude: "",
-      });
-
       await fetchMissions();
 
-      if (response.data?.missionId) {
-        setSelected(response.data);
+      const createdMission = response.data;
+
+      if (createdMission?.missionId) {
+        setSelected(createdMission);
         setProgress(null);
         setPage("details");
-        fetchProgress(response.data.missionId);
       } else {
-        setPage("dashboard");
+        setPage("missions");
       }
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(
+        err.response?.data?.message ||
+          "Unable to create mission. Please check the backend."
+      );
     } finally {
       setCreating(false);
     }
   };
 
-  // OPEN MISSION DETAILS
   const openMission = async (mission) => {
     setSelected(mission);
     setProgress(null);
-    setError("");
     setPage("details");
-
-    await fetchProgress(mission.missionId);
-  };
-
-  // UPDATE MISSION STATUS
-  const handleStatusUpdate = async (newStatus) => {
-    if (!selected?.missionId) return;
+    setError("");
+    setSuccess("");
 
     try {
-      setError("");
-      setSuccess("");
-
-      await axios.put(
-        `${API}/${selected.missionId}/status`,
-        { status: newStatus }
-      );
-
-      setSuccess("Mission status updated successfully.");
-
-      await fetchMissions();
-
       const response = await axios.get(
-        `${API}/${selected.missionId}`
+        `${API}/${mission.missionId}`
       );
 
       setSelected(response.data);
-      await fetchProgress(selected.missionId);
+      await fetchProgress(mission.missionId);
     } catch (err) {
-      setError(getErrorMessage(err));
+      console.error("Unable to load mission details:", err);
     }
   };
 
-  // CANCEL MISSION
-  const handleCancelMission = async () => {
+  const cancelMission = async () => {
     if (!selected?.missionId) return;
 
     const confirmed = window.confirm(
@@ -344,43 +315,33 @@ function App() {
         `${API}/${selected.missionId}/cancel`
       );
 
-      setSuccess("Mission cancelled successfully.");
-
       const response = await axios.get(
         `${API}/${selected.missionId}`
       );
 
       setSelected(response.data);
-
-      await fetchMissions();
       await fetchProgress(selected.missionId);
+      await fetchMissions();
+
+      setSuccess("Mission cancelled successfully.");
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(
+        err.response?.data?.message ||
+          "Unable to cancel this mission."
+      );
     }
   };
 
-  const changePage = (newPage) => {
-    setError("");
-    setSuccess("");
-    setPage(newPage);
-  };
-
-  // WORKFLOW PROGRESS
   const currentStage =
-    progress?.currentStage ||
-    selected?.currentStage ||
-    selected?.status ||
-    "VALIDATING_ROUTE";
+    progress?.currentStage || selected?.currentStage || "";
 
   const currentStageIndex = WORKFLOW_STAGES.indexOf(currentStage);
 
   const isCompleted =
-    progress?.completed ||
-    selected?.status === "COMPLETED";
+    selected?.status === "COMPLETED" ||
+    currentStage === "COMPLETED";
 
-  const isAborted =
-    selected?.status === "ABORTED" ||
-    currentStage === "ABORTED";
+  const isAborted = selected?.status === "ABORTED";
 
   const progressPercentage = isAborted
     ? Math.max(0, ((Math.max(currentStageIndex, 0) + 1) / 4) * 100)
@@ -388,12 +349,13 @@ function App() {
     ? 100
     : currentStageIndex >= 0
     ? ((currentStageIndex + 1) / 4) * 100
-    : 0;return (
+    : 0;
+    return (
     <div className="app-shell">
 
       {/* SIDEBAR */}
 
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileMenu ? "sidebar-open" : ""}`}>
         <div className="brand">
           <div className="brand-icon">
             <Plane size={25} />
@@ -405,7 +367,7 @@ function App() {
           </div>
         </div>
 
-        <div className="sidebar-label">WORKSPACE</div>
+        <div className="sidebar-label">MAIN MENU</div>
 
         <nav className="sidebar-nav">
           <button
@@ -431,41 +393,57 @@ function App() {
             <Plus size={19} />
             Create Mission
           </button>
+
+          <button
+            className={page === "analytics" ? "nav-item active" : "nav-item"}
+            onClick={() => changePage("analytics")}
+          >
+            <BarChart3 size={19} />
+            Mission Analytics
+          </button>
         </nav>
 
         <div className="sidebar-bottom">
-          <div className="system-status">
-            <span className="online-dot"></span>
+          <div className="connection-indicator">
+            <span className="connection-dot"></span>
             <div>
-              <strong>System Online</strong>
-              <small>Mission services ready</small>
+              <strong>Mission System</strong>
+              <small>Dashboard available</small>
             </div>
           </div>
-
-          <p>AeroSaga Mission Control</p>
-          <small>Temporal-powered drone management</small>
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN AREA */}
 
       <main className="main-content">
 
         {/* TOPBAR */}
 
         <header className="topbar">
-          <div>
-            <p className="eyebrow">AUTONOMOUS DRONE PLATFORM</p>
+          <div className="topbar-left">
+            <button
+              className="mobile-menu-button"
+              onClick={() => setMobileMenu(!mobileMenu)}
+            >
+              {mobileMenu ? <XCircle size={22} /> : <List size={22} />}
+            </button>
 
-            <h1>
-              {page === "dashboard"
-                ? "Dashboard"
-                : page === "missions"
-                ? "All Missions"
-                : page === "create"
-                ? "Create Mission"
-                : "Mission Details"}
-            </h1>
+            <div>
+              <p className="eyebrow">AEROSAGA / MISSION CONTROL</p>
+
+              <h1>
+                {page === "dashboard"
+                  ? "Dashboard"
+                  : page === "missions"
+                  ? "All Missions"
+                  : page === "create"
+                  ? "Create Mission"
+                  : page === "analytics"
+                  ? "Mission Analytics"
+                  : "Mission Details"}
+              </h1>
+            </div>
           </div>
 
           <div className="topbar-actions">
@@ -474,24 +452,24 @@ function App() {
               onClick={fetchMissions}
               title="Refresh missions"
             >
-              <RefreshCw size={18} />
+              <RefreshCw size={19} />
             </button>
 
             <button
               className="primary-button"
               onClick={() => changePage("create")}
             >
-              <Plus size={17} />
+              <Plus size={18} />
               New Mission
             </button>
           </div>
         </header>
 
-        {/* ALERTS */}
+        {/* ALERT MESSAGES */}
 
         {error && (
-          <div className="alert error-alert">
-            <AlertCircle size={18} />
+          <div className="alert alert-error">
+            <AlertCircle size={19} />
             <span>{error}</span>
 
             <button onClick={() => setError("")}>
@@ -501,8 +479,8 @@ function App() {
         )}
 
         {success && (
-          <div className="alert success-alert">
-            <CheckCircle2 size={18} />
+          <div className="alert alert-success">
+            <CheckCircle2 size={19} />
             <span>{success}</span>
 
             <button onClick={() => setSuccess("")}>
@@ -517,15 +495,25 @@ function App() {
           <>
             <section className="welcome-section">
               <div>
-                <p className="eyebrow">MISSION OVERVIEW</p>
-                <h2>Welcome to Mission Control</h2>
+                <p className="eyebrow">WELCOME TO AEROSAGA</p>
+
+                <h2>Autonomous Drone Mission Control</h2>
+
                 <p className="muted">
-                  Monitor, manage and track your autonomous drone missions.
+                  Monitor, manage and track your drone missions from one place.
                 </p>
+
+                <button
+                  className="primary-button welcome-button"
+                  onClick={() => changePage("create")}
+                >
+                  <Plus size={18} />
+                  Create New Mission
+                </button>
               </div>
 
               <div className="welcome-icon">
-                <Crosshair size={38} />
+                <Navigation size={42} />
               </div>
             </section>
 
@@ -533,7 +521,7 @@ function App() {
               <StatCard
                 title="Total Missions"
                 value={totalMissions}
-                icon={Navigation}
+                icon={Plane}
                 color="blue"
               />
 
@@ -545,16 +533,16 @@ function App() {
               />
 
               <StatCard
-                title="Completed Missions"
+                title="Completed"
                 value={completedMissions}
                 icon={CheckCircle2}
                 color="green"
               />
 
               <StatCard
-                title="Aborted Missions"
+                title="Aborted"
                 value={abortedMissions}
-                icon={ShieldAlert}
+                icon={XCircle}
                 color="red"
               />
             </section>
@@ -564,7 +552,7 @@ function App() {
                 <div>
                   <h3>Recent Missions</h3>
                   <p className="muted">
-                    Latest drone mission activity
+                    Latest missions from your mission database
                   </p>
                 </div>
 
@@ -576,8 +564,11 @@ function App() {
                 </button>
               </div>
 
-              {loading ? (
-                <p className="empty-state">Loading missions...</p>
+              {loading && missions.length === 0 ? (
+                <div className="empty-state">
+                  <RefreshCw size={25} />
+                  <p>Loading missions...</p>
+                </div>
               ) : missions.length === 0 ? (
                 <div className="empty-state">
                   <Plane size={35} />
@@ -595,13 +586,13 @@ function App() {
               ) : (
                 <div className="mission-list">
                   {missions.slice(0, 5).map((mission) => (
-                    <div
+                    <button
                       className="mission-row"
                       key={mission.missionId}
                       onClick={() => openMission(mission)}
                     >
-                      <div className="mission-avatar">
-                        <Plane size={19} />
+                      <div className="mission-row-icon">
+                        <Plane size={20} />
                       </div>
 
                       <div className="mission-row-info">
@@ -609,12 +600,10 @@ function App() {
                         <small>{mission.missionId}</small>
                       </div>
 
-                      <Status value={mission.status} />
+                      <StatusBadge status={mission.status} />
 
-                      <button className="view-button">
-                        View <ArrowLeft size={15} />
-                      </button>
-                    </div>
+                      <ArrowLeft className="mission-arrow" size={18} />
+                    </button>
                   ))}
                 </div>
               )}
@@ -630,7 +619,7 @@ function App() {
               <div>
                 <h3>All Missions</h3>
                 <p className="muted">
-                  Manage and monitor all drone missions
+                  Search, filter and manage your drone missions.
                 </p>
               </div>
 
@@ -639,27 +628,27 @@ function App() {
                 onClick={() => changePage("create")}
               >
                 <Plus size={17} />
-                Create Mission
+                New Mission
               </button>
             </div>
 
-            <div className="filter-bar">
+            <div className="filter-toolbar">
               <div className="search-box">
-                <Search size={17} />
+                <Search size={18} />
 
                 <input
                   type="text"
                   placeholder="Search drone ID or mission ID..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                 />
               </div>
 
               <select
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+                onChange={(event) => setFilterStatus(event.target.value)}
               >
-                <option value="ALL">All Status</option>
+                <option value="ALL">All Statuses</option>
                 <option value="STARTED">Started</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="COMPLETED">Completed</option>
@@ -667,24 +656,22 @@ function App() {
               </select>
             </div>
 
-            {loading ? (
-              <p className="empty-state">Loading missions...</p>
-            ) : filteredMissions.length === 0 ? (
+            {filteredMissions.length === 0 ? (
               <div className="empty-state">
-                <Search size={32} />
+                <Search size={30} />
                 <h3>No matching missions</h3>
-                <p>Try changing your search or filter.</p>
+                <p>Try changing your search or status filter.</p>
               </div>
             ) : (
               <div className="mission-list">
                 {filteredMissions.map((mission) => (
-                  <div
+                  <button
                     className="mission-row"
                     key={mission.missionId}
                     onClick={() => openMission(mission)}
                   >
-                    <div className="mission-avatar">
-                      <Plane size={19} />
+                    <div className="mission-row-icon">
+                      <Plane size={20} />
                     </div>
 
                     <div className="mission-row-info">
@@ -692,12 +679,10 @@ function App() {
                       <small>{mission.missionId}</small>
                     </div>
 
-                    <Status value={mission.status} />
+                    <StatusBadge status={mission.status} />
 
-                    <button className="view-button">
-                      Details <ArrowLeft size={15} />
-                    </button>
-                  </div>
+                    <ArrowLeft className="mission-arrow" size={18} />
+                  </button>
                 ))}
               </div>
             )}
@@ -717,121 +702,96 @@ function App() {
                 </p>
               </div>
 
-              <div className="form-icon">
-                <Navigation size={27} />
+              <div className="welcome-icon">
+                <Crosshair size={30} />
               </div>
             </div>
 
-            <form onSubmit={handleCreateMission}>
+            <form onSubmit={createMission}>
               <div className="form-group">
                 <label>Drone ID</label>
 
                 <input
                   type="text"
-                  placeholder="Example: DRONE-001"
+                  name="droneId"
                   value={form.droneId}
-                  onChange={(e) =>
-                    setForm({ ...form, droneId: e.target.value })
-                  }
+                  onChange={updateForm}
+                  placeholder="Enter drone ID"
                   required
                 />
               </div>
 
-              <div className="coordinate-section">
-                <h4>
-                  <MapPin size={18} />
-                  Starting Coordinates
-                </h4>
+              <div className="form-section-heading">
+                <MapPin size={19} />
+                <h4>Starting Coordinates</h4>
+              </div>
 
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Start Latitude</label>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Start Latitude</label>
 
-                    <input
-                      type="number"
-                      step="any"
-                      min="-90"
-                      max="90"
-                      placeholder="28.6139"
-                      value={form.startLatitude}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          startLatitude: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    name="startLatitude"
+                    value={form.startLatitude}
+                    onChange={updateForm}
+                    step="any"
+                    min="-90"
+                    max="90"
+                    required
+                  />
+                </div>
 
-                  <div className="form-group">
-                    <label>Start Longitude</label>
+                <div className="form-group">
+                  <label>Start Longitude</label>
 
-                    <input
-                      type="number"
-                      step="any"
-                      min="-180"
-                      max="180"
-                      placeholder="77.2090"
-                      value={form.startLongitude}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          startLongitude: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    name="startLongitude"
+                    value={form.startLongitude}
+                    onChange={updateForm}
+                    step="any"
+                    min="-180"
+                    max="180"
+                    required
+                  />
                 </div>
               </div>
 
-              <div className="coordinate-section">
-                <h4>
-                  <Target size={18} />
-                  Target Coordinates
-                </h4>
+              <div className="form-section-heading">
+                <Target size={19} />
+                <h4>Destination Coordinates</h4>
+              </div>
 
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Target Latitude</label>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Target Latitude</label>
 
-                    <input
-                      type="number"
-                      step="any"
-                      min="-90"
-                      max="90"
-                      placeholder="28.5355"
-                      value={form.targetLatitude}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          targetLatitude: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    name="targetLatitude"
+                    value={form.targetLatitude}
+                    onChange={updateForm}
+                    step="any"
+                    min="-90"
+                    max="90"
+                    required
+                  />
+                </div>
 
-                  <div className="form-group">
-                    <label>Target Longitude</label>
+                <div className="form-group">
+                  <label>Target Longitude</label>
 
-                    <input
-                      type="number"
-                      step="any"
-                      min="-180"
-                      max="180"
-                      placeholder="77.3910"
-                      value={form.targetLongitude}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          targetLongitude: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    name="targetLongitude"
+                    value={form.targetLongitude}
+                    onChange={updateForm}
+                    step="any"
+                    min="-180"
+                    max="180"
+                    required
+                  />
                 </div>
               </div>
 
@@ -849,21 +809,247 @@ function App() {
                   className="primary-button"
                   disabled={creating}
                 >
-                  {creating ? (
-                    <>
-                      <RefreshCw size={17} />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <Send size={17} />
-                      Start Mission
-                    </>
-                  )}
+                  <Send size={17} />
+                  {creating ? "Creating..." : "Launch Mission"}
                 </button>
               </div>
             </form>
           </section>
+        )}
+        {/* MISSION ANALYTICS */}
+
+        {page === "analytics" && (
+          <>
+            <section className="welcome-section">
+              <div>
+                <p className="eyebrow">PERFORMANCE OVERVIEW</p>
+                <h2>Mission Analytics</h2>
+                <p className="muted">
+                  Analyze drone mission performance and workflow statistics.
+                </p>
+              </div>
+
+              <div className="welcome-icon">
+                <BarChart3 size={38} />
+              </div>
+            </section>
+
+            <section className="stats-grid">
+              <StatCard
+                title="Total Missions"
+                value={totalMissions}
+                icon={Navigation}
+                color="blue"
+              />
+
+              <StatCard
+                title="Active Missions"
+                value={activeMissions}
+                icon={Activity}
+                color="purple"
+              />
+
+              <StatCard
+                title="Completed"
+                value={completedMissions}
+                icon={CheckCircle2}
+                color="green"
+              />
+
+              <StatCard
+                title="Aborted"
+                value={abortedMissions}
+                icon={ShieldAlert}
+                color="red"
+              />
+            </section>
+
+            <section className="analytics-grid">
+
+              {/* PIE CHART */}
+
+              <div className="panel analytics-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h3>Mission Distribution</h3>
+                    <p className="muted">
+                      Breakdown by mission status
+                    </p>
+                  </div>
+
+                  <PieChartIcon size={22} />
+                </div>
+
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: "Active", value: activeMissions },
+                          { name: "Completed", value: completedMissions },
+                          { name: "Aborted", value: abortedMissions },
+                        ]}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        innerRadius={55}
+                        paddingAngle={4}
+                      >
+                        <Cell fill="#818cf8" />
+                        <Cell fill="#34d399" />
+                        <Cell fill="#fb7185" />
+                      </Pie>
+
+                      <Tooltip
+                        contentStyle={{
+                          background: "#151b2b",
+                          border: "1px solid #343d52",
+                          borderRadius: "10px",
+                          color: "#ffffff",
+                        }}
+                      />
+
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* BAR CHART */}
+
+              <div className="panel analytics-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h3>Mission Performance</h3>
+                    <p className="muted">
+                      Number of missions by status
+                    </p>
+                  </div>
+
+                  <BarChart3 size={22} />
+                </div>
+
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart
+                      data={[
+                        { name: "Active", missions: activeMissions },
+                        { name: "Completed", missions: completedMissions },
+                        { name: "Aborted", missions: abortedMissions },
+                      ]}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#30394b"
+                      />
+
+                      <XAxis
+                        dataKey="name"
+                        stroke="#a0a9bd"
+                      />
+
+                      <YAxis
+                        stroke="#a0a9bd"
+                        allowDecimals={false}
+                      />
+
+                      <Tooltip
+                        contentStyle={{
+                          background: "#151b2b",
+                          border: "1px solid #343d52",
+                          borderRadius: "10px",
+                          color: "#ffffff",
+                        }}
+                      />
+
+                      <Bar
+                        dataKey="missions"
+                        fill="#818cf8"
+                        radius={[7, 7, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </section>
+
+            {/* COMPLETION RATE */}
+
+            <section className="panel completion-panel">
+              <div className="panel-heading">
+                <div>
+                  <h3>Mission Completion Rate</h3>
+                  <p className="muted">
+                    Percentage of missions completed successfully
+                  </p>
+                </div>
+
+                <CheckCircle2 size={24} />
+              </div>
+
+              <div className="completion-content">
+                <div className="completion-number">
+                  {totalMissions === 0
+                    ? "0%"
+                    : `${Math.round(
+                        (completedMissions / totalMissions) * 100
+                      )}%`}
+                </div>
+
+                <div className="completion-bar">
+                  <div
+                    className="completion-fill"
+                    style={{
+                      width:
+                        totalMissions === 0
+                          ? "0%"
+                          : `${(completedMissions / totalMissions) * 100}%`,
+                    }}
+                  />
+                </div>
+
+                <p className="muted">
+                  {completedMissions} successful missions out of{" "}
+                  {totalMissions} total missions.
+                </p>
+              </div>
+            </section>
+
+            {/* PERFORMANCE SUMMARY */}
+
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <h3>Performance Summary</h3>
+                  <p className="muted">
+                    Current mission statistics
+                  </p>
+                </div>
+              </div>
+
+              <div className="analytics-summary">
+                <div>
+                  <span className="summary-dot active-dot"></span>
+                  <span>Active Missions</span>
+                  <strong>{activeMissions}</strong>
+                </div>
+
+                <div>
+                  <span className="summary-dot completed-dot"></span>
+                  <span>Completed Missions</span>
+                  <strong>{completedMissions}</strong>
+                </div>
+
+                <div>
+                  <span className="summary-dot aborted-dot"></span>
+                  <span>Aborted Missions</span>
+                  <strong>{abortedMissions}</strong>
+                </div>
+              </div>
+            </section>
+          </>
         )}
 
         {/* MISSION DETAILS AND LIVE TRACKING */}
@@ -873,84 +1059,100 @@ function App() {
 
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">
-                  MISSION IDENTIFICATION
-                </p>
-
+                <p className="eyebrow">MISSION IDENTIFICATION</p>
                 <h3>{selected.droneId}</h3>
-
-                <p className="muted mission-id">
-                  {selected.missionId}
-                </p>
+                <p className="muted">{selected.missionId}</p>
               </div>
 
-              <Status value={selected.status} />
+              <StatusBadge status={selected.status} />
+            </div>
+
+            <div className="detail-actions">
+              <button
+                className="secondary-button"
+                onClick={() => changePage("missions")}
+              >
+                <ArrowLeft size={17} />
+                Back to Missions
+              </button>
+
+              {!terminalStatuses.includes(selected.status) && (
+                <button
+                  className="danger-button"
+                  onClick={cancelMission}
+                >
+                  <XCircle size={17} />
+                  Cancel Mission
+                </button>
+              )}
             </div>
 
             <div className="detail-grid">
+
               <div className="detail-card">
-                <MapPin size={19} />
-
-                <p className="muted">Start Coordinates</p>
-
-                <strong>
-                  {selected.startLatitude}, {selected.startLongitude}
-                </strong>
+                <MapPin size={21} />
+                <span>Starting Latitude</span>
+                <strong>{selected.startLatitude ?? "N/A"}</strong>
               </div>
 
               <div className="detail-card">
-                <Navigation size={19} />
+                <MapPin size={21} />
+                <span>Starting Longitude</span>
+                <strong>{selected.startLongitude ?? "N/A"}</strong>
+              </div>
 
-                <p className="muted">Target Coordinates</p>
+              <div className="detail-card">
+                <Target size={21} />
+                <span>Target Latitude</span>
+                <strong>{selected.targetLatitude ?? "N/A"}</strong>
+              </div>
 
-                <strong>
-                  {selected.targetLatitude}, {selected.targetLongitude}
-                </strong>
+              <div className="detail-card">
+                <Target size={21} />
+                <span>Target Longitude</span>
+                <strong>{selected.targetLongitude ?? "N/A"}</strong>
               </div>
             </div>
 
             {/* LIVE WORKFLOW TRACKER */}
 
-            <div className="progress-section">
+            <div className="workflow-section">
               <div className="panel-heading">
                 <div>
-                  <h3>
-                    <Activity size={19} />
-                    Live Mission Progress
-                  </h3>
-
+                  <p className="eyebrow">TEMPORAL WORKFLOW</p>
+                  <h3>Live Workflow Tracker</h3>
                   <p className="muted">
-                    Temporal workflow execution
+                    Track the execution stages of your drone mission.
                   </p>
                 </div>
 
-                {!terminalStatuses.includes(selected.status) && (
-                  <span className="live-indicator">
-                    LIVE
-                  </span>
-                )}
-              </div>
-
-              <div className="progress-stage">
-                {isAborted
-                  ? "MISSION ABORTED"
-                  : isCompleted
-                  ? "MISSION COMPLETED"
-                  : currentStage.replaceAll("_", " ")}
+                <Activity size={25} />
               </div>
 
               <div className="workflow-progress">
-                <div
-                  className="workflow-progress-fill"
-                  style={{ width: `${progressPercentage}%` }}
-                />
+                <div className="workflow-progress-header">
+                  <span>Mission Progress</span>
+                  <strong>
+                    {isAborted
+                      ? "Aborted"
+                      : `${Math.round(progressPercentage)}%`}
+                  </strong>
+                </div>
+
+                <div className="completion-bar">
+                  <div
+                    className="completion-fill"
+                    style={{
+                      width: `${progressPercentage}%`,
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="workflow-stages">
                 {WORKFLOW_STAGES.map((stage, index) => {
                   const isStageComplete =
-                    isCompleted ||
-                    (!isAborted && index < currentStageIndex);
+                    isCompleted || index < currentStageIndex;
 
                   const isCurrent =
                     !isCompleted &&
@@ -960,80 +1162,81 @@ function App() {
                   return (
                     <div
                       className={`workflow-stage ${
-                        isStageComplete ? "stage-complete" : ""
-                      } ${isCurrent ? "stage-current" : ""}`}
+                        isStageComplete
+                          ? "stage-completed"
+                          : isCurrent
+                          ? "stage-current"
+                          : ""
+                      }`}
                       key={stage}
                     >
-                      <div className="stage-icon">
+                      <div className="workflow-stage-icon">
                         {isStageComplete ? (
-                          <CheckCircle2 size={19} />
+                          <CheckCircle2 size={22} />
+                        ) : isCurrent ? (
+                          <Activity size={22} />
                         ) : (
-                          index + 1
+                          <Clock size={22} />
                         )}
                       </div>
 
-                      <small>{stage.replaceAll("_", " ")}</small>
+                      <div>
+                        <strong>
+                          {stage.replaceAll("_", " ")}
+                        </strong>
+
+                        <small>
+                          {isStageComplete
+                            ? "Completed"
+                            : isCurrent
+                            ? "Currently Running"
+                            : "Waiting"}
+                        </small>
+                      </div>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="progress-meta">
-                <div>
-                  <Clock size={17} />
-                  <span>
-                    Status: <strong>{selected.status}</strong>
-                  </span>
+              {isAborted && (
+                <div className="workflow-message aborted-message">
+                  <ShieldAlert size={19} />
+                  This mission has been aborted.
                 </div>
+              )}
 
-                <div>
-                  {isAborted ? (
-                    <XCircle size={17} />
-                  ) : (
-                    <CheckCircle2 size={17} />
-                  )}
-
-                  <span>
-                    {isAborted
-                      ? "Mission stopped"
-                      : isCompleted
-                      ? "All stages completed"
-                      : progress?.completed
-                      ? "Workflow completed"
-                      : "Workflow in progress"}
-                  </span>
+              {isCompleted && (
+                <div className="workflow-message completed-message">
+                  <CheckCircle2 size={19} />
+                  Mission completed successfully!
                 </div>
-              </div>
+              )}
 
-              <p className="refresh-note muted">
-                <RefreshCw size={13} />
-                Progress refreshes automatically every 3 seconds.
-              </p>
+              {!isAborted && !isCompleted && (
+                <div className="workflow-message">
+                  <Activity size={19} />
+                  Current Stage:{" "}
+                  {formatStatus(currentStage || "NOT STARTED")}
+                </div>
+              )}
             </div>
 
-            {/* MISSION ACTIONS */}
+            <div className="detail-footer">
+              <span>
+                <RadioIcon />
+                Workflow progress updates automatically.
+              </span>
 
-            <div className="mission-actions">
               <button
-                className="secondary-button"
+                className="icon-button"
                 onClick={() => {
-                  changePage("missions");
+                  fetchProgress(selected.missionId);
                   fetchMissions();
                 }}
+                title="Refresh progress"
               >
-                <ArrowLeft size={16} />
-                Back to Missions
+                <RefreshCw size={18} />
               </button>
-
-              {!terminalStatuses.includes(selected.status) && (
-                <button
-                  className="danger-button"
-                  onClick={handleCancelMission}
-                >
-                  <XCircle size={17} />
-                  Cancel Mission
-                </button>
-              )}
             </div>
           </section>
         )}
@@ -1044,24 +1247,32 @@ function App() {
           <section className="panel empty-state">
             <AlertCircle size={35} />
             <h3>No mission selected</h3>
-            <p>Please select a mission from the mission list.</p>
+            <p>Please select a mission to view its details.</p>
 
             <button
               className="primary-button"
               onClick={() => changePage("missions")}
-              >
+            >
+              <List size={17} />
               View Missions
             </button>
           </section>
         )}
 
+        {/* FOOTER */}
+
         <footer className="app-footer">
-          <span>AeroSaga © 2026</span>
-          <span>Autonomous Drone Mission Control</span>
+          <span>AeroSaga Mission Control</span>
+          <span>Autonomous Drone Management System</span>
         </footer>
+
       </main>
     </div>
   );
+}
+
+function RadioIcon() {
+  return <Activity size={16} />;
 }
 
 export default App;
