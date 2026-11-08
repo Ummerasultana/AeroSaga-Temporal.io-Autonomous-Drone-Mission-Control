@@ -14,11 +14,9 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Stores dashboard connections
     private final Set<WebSocketSession> dashboardSessions =
             ConcurrentHashMap.newKeySet();
 
-    // Stores drone connections
     private final Set<WebSocketSession> droneSessions =
             ConcurrentHashMap.newKeySet();
 
@@ -26,22 +24,18 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(
             WebSocketSession session) {
 
-        // Debug: show the WebSocket URL used by the client
         System.out.println(
                 "WebSocket URI: " + session.getUri()
         );
 
-        String clientType =
-                session.getUri()
-                        .getQuery();
+        String query = session.getUri().getQuery();
 
-        if ("drone".equalsIgnoreCase(clientType)) {
+        if ("drone".equalsIgnoreCase(query)) {
 
             droneSessions.add(session);
 
             System.out.println(
-                    "Drone connected: " +
-                            session.getId()
+                    "DRONE SESSION ADDED: " + session.getId()
             );
 
         } else {
@@ -49,10 +43,19 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
             dashboardSessions.add(session);
 
             System.out.println(
-                    "Dashboard connected: " +
-                            session.getId()
+                    "DASHBOARD SESSION ADDED: " + session.getId()
             );
         }
+
+        System.out.println(
+                "Current drone sessions: " +
+                        droneSessions.size()
+        );
+
+        System.out.println(
+                "Current dashboard sessions: " +
+                        dashboardSessions.size()
+        );
     }
 
     @Override
@@ -71,7 +74,6 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
                         telemetry.getDroneId()
         );
 
-        // Send telemetry ONLY to dashboards
         broadcastToDashboards(telemetry);
     }
 
@@ -79,12 +81,16 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
             DroneTelemetry telemetry) throws Exception {
 
         String json =
-                objectMapper.writeValueAsString(
-                        telemetry
-                );
+                objectMapper.writeValueAsString(telemetry);
 
         TextMessage message =
                 new TextMessage(json);
+
+        System.out.println(
+                "Broadcasting telemetry to " +
+                        dashboardSessions.size() +
+                        " dashboard(s)"
+        );
 
         for (WebSocketSession session :
                 dashboardSessions) {
@@ -110,6 +116,16 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
         System.out.println(
                 "Connection closed: " +
                         session.getId()
+        );
+
+        System.out.println(
+                "Current drone sessions: " +
+                        droneSessions.size()
+        );
+
+        System.out.println(
+                "Current dashboard sessions: " +
+                        dashboardSessions.size()
         );
     }
 }
