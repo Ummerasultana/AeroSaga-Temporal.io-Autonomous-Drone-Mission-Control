@@ -1,4 +1,3 @@
-
 package in.aerosaga.telemetry;
 
 import org.springframework.context.annotation.Configuration;
@@ -14,14 +13,27 @@ public class TelemetryWebSocketConfig implements WebSocketConfigurer {
 
     public TelemetryWebSocketConfig(
             TelemetryWebSocketHandler telemetryWebSocketHandler) {
-        this.telemetryWebSocketHandler = telemetryWebSocketHandler;
+
+        this.telemetryWebSocketHandler =
+                telemetryWebSocketHandler;
     }
 
     @Override
     public void registerWebSocketHandlers(
             WebSocketHandlerRegistry registry) {
 
-        registry.addHandler(telemetryWebSocketHandler, "/telemetry")
+        // Drone connections
+        registry.addHandler(
+                        telemetryWebSocketHandler,
+                        "/telemetry/drone"
+                )
+                .setAllowedOrigins("*");
+
+        // Dashboard connections
+        registry.addHandler(
+                        telemetryWebSocketHandler,
+                        "/telemetry/dashboard"
+                )
                 .setAllowedOrigins("*");
     }
 }
