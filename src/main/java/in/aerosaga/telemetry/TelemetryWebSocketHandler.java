@@ -17,40 +17,33 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
     private final Set<WebSocketSession> dashboardSessions =
             ConcurrentHashMap.newKeySet();
 
-    private final Set<WebSocketSession> droneSessions =
-            ConcurrentHashMap.newKeySet();
-
     @Override
     public void afterConnectionEstablished(
             WebSocketSession session) {
 
         System.out.println(
-                "WebSocket URI: " + session.getUri()
+                "WebSocket connected: " +
+                        session.getUri()
         );
 
-        String query = session.getUri().getQuery();
+        String path = session.getUri().getPath();
 
-        if ("drone".equalsIgnoreCase(query)) {
-
-            droneSessions.add(session);
-
-            System.out.println(
-                    "DRONE SESSION ADDED: " + session.getId()
-            );
-
-        } else {
+        if (path.endsWith("/dashboard")) {
 
             dashboardSessions.add(session);
 
             System.out.println(
-                    "DASHBOARD SESSION ADDED: " + session.getId()
+                    "DASHBOARD CONNECTED: " +
+                            session.getId()
+            );
+
+        } else if (path.endsWith("/drone")) {
+
+            System.out.println(
+                    "DRONE CONNECTED: " +
+                            session.getId()
             );
         }
-
-        System.out.println(
-                "Current drone sessions: " +
-                        droneSessions.size()
-        );
 
         System.out.println(
                 "Current dashboard sessions: " +
@@ -92,14 +85,13 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
                         " dashboard(s)"
         );
 
-        for (WebSocketSession session :
+        for (WebSocketSession dashboard :
                 dashboardSessions) {
 
-            if (session.isOpen()) {
+            if (dashboard.isOpen()) {
 
-                synchronized (session) {
-
-                    session.sendMessage(message);
+                synchronized (dashboard) {
+                    dashboard.sendMessage(message);
                 }
             }
         }
@@ -111,16 +103,10 @@ public class TelemetryWebSocketHandler extends TextWebSocketHandler {
             org.springframework.web.socket.CloseStatus status) {
 
         dashboardSessions.remove(session);
-        droneSessions.remove(session);
 
         System.out.println(
                 "Connection closed: " +
                         session.getId()
-        );
-
-        System.out.println(
-                "Current drone sessions: " +
-                        droneSessions.size()
         );
 
         System.out.println(

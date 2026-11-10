@@ -1,0 +1,412 @@
+.dashboard {
+  min-height: 100vh;
+  display: flex;
+  background: #0b1120;
+  color: #e2e8f0;
+  font-family: Arial, sans-serif;
+}
+
+/* Sidebar */
+
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: #0f172a;
+  border-right: 1px solid #1e293b;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.brand-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+}
+
+.brand h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.brand span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav-item {
+  padding: 13px 14px;
+  border-radius: 8px;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  background: #1e293b;
+  color: white;
+}
+
+.system-status {
+  margin-top: auto;
+  color: #94a3b8;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+/* Main */
+
+.main-content {
+  flex: 1;
+  padding: 32px;
+  overflow-x: auto;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.topbar h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+
+.topbar p {
+  margin: 0;
+  color: #64748b;
+}
+
+.connection {
+  padding: 10px 14px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+/* Status */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: #22c55e;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+
+/* Statistics */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 35px;
+}
+
+.stat-card {
+  background: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.stat-card span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.stat-card strong {
+  display: block;
+  font-size: 28px;
+  margin-top: 10px;
+}
+
+
+/* Sections */
+
+.section {
+  margin-bottom: 30px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.section-header span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+
+/* Drone cards */
+
+.drone-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.drone-card {
+  background: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.drone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.drone-header h3 {
+  margin: 0 0 7px;
+  font-size: 17px;
+}
+
+.active-status {
+  color: #22c55e;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drone-icon {
+  font-size: 28px;
+}
+
+
+/* Telemetry */
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.telemetry-item {
+  background: #0f172a;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.telemetry-item span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+
+.telemetry-item strong {
+  font-size: 14px;
+}
+
+
+/* Mission */
+
+.mission-status {
+  margin-top: 15px;
+  padding: 12px;
+  background: #0f172a;
+  border-radius: 8px;
+}
+
+.mission-status span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+
+.mission-status strong {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.view-button,
+.primary-button {
+  width: 100%;
+  margin-top: 15px;
+  padding: 11px;
+  border: none;
+  border-radius: 7px;
+  background: #1d4ed8;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.view-button:hover,
+.primary-button:hover {
+  background: #2563eb;
+}
+
+
+/* Bottom */
+
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.panel {
+  background: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.empty-message {
+  color: #64748b;
+  font-size: 14px;
+  padding: 20px 0;
+}
+
+.primary-button {
+  width: auto;
+  padding: 11px 18px;
+}
+
+
+/* Responsive */
+
+@media (max-width: 1000px) {
+  .drone-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    display: none;
+  }
+
+  .main-content {
+    padding: 20px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* Mission Controls */
+
+.mission-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mission-controls label {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.mission-controls select {
+  width: 100%;
+  padding: 11px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 7px;
+  color: white;
+  font-size: 14px;
+}
+
+.mission-controls select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.mission-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.mission-actions button {
+  margin-top: 0;
+}
+
+.abort-button {
+  flex: 1;
+  padding: 11px;
+  border: 1px solid #7f1d1d;
+  border-radius: 7px;
+  background: #450a0a;
+  color: #fca5a5;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.abort-button:hover {
+  background: #7f1d1d;
+}
+
+.current-mission {
+  margin-top: 18px;
+  padding: 13px;
+  background: #0f172a;
+  border-radius: 8px;
+}
+
+.current-mission span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.current-mission strong {
+  font-size: 13px;
+  color: #94a3b8;
+}
