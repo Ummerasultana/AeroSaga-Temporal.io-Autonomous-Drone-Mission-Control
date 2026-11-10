@@ -1,5 +1,4 @@
-
-        package in.aerosaga.config;
+package in.aerosaga.config;
 
 import io.temporal.client.WorkflowClient;
 import io.temporal.serviceclient.WorkflowServiceStubs;
@@ -10,20 +9,23 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class TemporalConfig {
 
+    private final AeroSagaProperties properties;
+
+    public TemporalConfig(AeroSagaProperties properties) {
+        this.properties = properties;
+    }
+
     @Bean
     public WorkflowServiceStubs workflowServiceStubs() {
-
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
-                        .setTarget("127.0.0.1:7233")
+                        .setTarget(properties.getTemporalTarget())
                         .build()
         );
     }
 
     @Bean
-    public WorkflowClient workflowClient(
-            WorkflowServiceStubs service) {
-
+    public WorkflowClient workflowClient(WorkflowServiceStubs service) {
         return WorkflowClient.newInstance(service);
     }
 }

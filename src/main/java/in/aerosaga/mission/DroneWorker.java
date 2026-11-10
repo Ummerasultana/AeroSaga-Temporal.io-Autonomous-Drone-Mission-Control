@@ -1,4 +1,3 @@
-
 package in.aerosaga.mission;
 
 import io.temporal.client.WorkflowClient;
@@ -12,11 +11,15 @@ public class DroneWorker {
     public static final String TASK_QUEUE = "DRONE_TASK_QUEUE";
 
     public static void main(String[] args) {
+        String target = System.getProperty("aerosaga.temporal.target",
+                System.getenv().getOrDefault("TEMPORAL_TARGET", "127.0.0.1:7233"));
+
+        System.out.println("Connecting DroneWorker to Temporal at: " + target);
 
         WorkflowServiceStubs service =
                 WorkflowServiceStubs.newServiceStubs(
                         WorkflowServiceStubsOptions.newBuilder()
-                                .setTarget("127.0.0.1:7233")
+                                .setTarget(target)
                                 .build()
                 );
 
@@ -41,8 +44,8 @@ public class DroneWorker {
 
         factory.start();
 
-        System.out.println(
-                "Drone worker started. Waiting for missions..."
-        );
+        System.out.println("AeroSaga Drone Worker started successfully on queue: " + TASK_QUEUE);
+        System.out.println("Registered workflows: DroneMissionWorkflow, MultiDroneMissionWorkflow");
+        System.out.println("Waiting for drone missions...");
     }
 }
